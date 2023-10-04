@@ -1,0 +1,15 @@
+.{
+    .name = "keypass",
+    .version = "0.1.0",
+
+    .dependencies = .{
+        .keylib = .{
+            .url = "https://codeberg.org/r4gus/keylib/archive/master.tar.gz",
+            .hash = "12204cfadeb967796fbf0f4ea3a12d8f369944a6475c1d0da1d2f6a71b046665ce3c",
+        },
+        .csv = .{
+            .url = "https://github.com/r4gus/csv/archive/master.tar.gz",
+            .hash = "12205c6d485a1d84e44e16f8e0ac535aecdcafff21e69cf5d01d99caf06c36f69f16",
+        },
+    },
+}
