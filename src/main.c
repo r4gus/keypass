@@ -12,9 +12,9 @@ int up(const char* info, const char* user, const char* rp) {
     return 1;
 }
 
-int uv(const char* info, const char* user, const char* rp) {
+int uv() {
     printf("uv\n");
-    return 1;
+    return Accepted;
 }
 
 int select_cred(const char* rpId, char** users, size_t len) {
@@ -127,6 +127,7 @@ int auth_write(const char* id, const char* rp, const char* data, size_t data_len
             continue;
         }
         if (l == strlen(id) && strncmp(id, id2, l) == 0) { // found
+            printf("csv write: found at index %d", index);
             found = 1;
             if (csv_set(csv, index, s, sl) < 0) {
                 printf("error: unable to update csv file\n");
@@ -138,6 +139,7 @@ int auth_write(const char* id, const char* rp, const char* data, size_t data_len
     }
 
     if (!found) {
+        printf("csv write: not found");
         if (csv_append(csv, s, sl) < 0) {
             printf("error: unable to update csv file\n");
             ret = Other;
