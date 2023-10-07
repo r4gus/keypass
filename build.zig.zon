@@ -4,11 +4,11 @@
     .dependencies = .{
         .keylib = .{
             .url = "https://codeberg.org/r4gus/keylib/archive/master.tar.gz",
-            .hash = "1220079c500d9fc078f2121ca4ac56e685d5499b6d5f3fa3d2373cdb26a3af54b033",
+            .hash = "1220422170b8d0f5a38ed2725433fe393e1442a3b6e74c3e45c30e7d49cb4ed49a90",
         },
-        .csv = .{
-            .url = "https://github.com/r4gus/csv/archive/master.tar.gz",
-            .hash = "12205c6d485a1d84e44e16f8e0ac535aecdcafff21e69cf5d01d99caf06c36f69f16",
+        .tresor = .{
+            .url = "https://codeberg.org/r4gus/tresor/archive/master.tar.gz",
+            .hash = "122023e07245a78392d552867d22ba7c9371b2a307bb7c630fef57ea83a6d23ae323",
         },
     },
 }

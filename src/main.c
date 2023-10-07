@@ -3,9 +3,10 @@
 #include <string.h> // memcpy(),
 #include "keylib/keylib.h"
 #include "keylib/uhid.h" // uhid_open(), uhid_close()
-#include "csv/csv.h"
+#include "tresor/tresor.h"
 
-#define CSV_PATH "test.csv"
+#define PATH "~/.keypass/db.trs"
+#define PW "super-secret"
 
 int up(const char* info, const char* user, const char* rp) {
     printf("up\n");
@@ -23,132 +24,135 @@ int select_cred(const char* rpId, char** users, size_t len) {
 }
 
 int auth_read(const char* id, const char* rp, Data** out) {
-    Csv csv = csv_open(CSV_PATH);
-    if (csv == NULL) {
-        printf("error: unable to open file %s\n", CSV_PATH);
+    int ret = DoesNotExist;
+    Tresor db = Tresor_open(PATH, PW);
+    if (!db) {
+        printf("error: unable to load db at %s", PATH);
         return DoesNotExist;
     }
 
     if (id) {
-        Row row;
-        while (row = csv_next(csv)) {
-            size_t l;
-            char* id2 = csv_row_next(row, &l);
-            if (id2 == NULL) {
-                continue;
-            }
-            if (l == strlen(id) && strncmp(id, id2, l) == 0) { // found
-                csv_row_next(row, &l);        
-                char* data = csv_row_next(row, &l);        
-                if (data == NULL) {
-                    return Other;
-                }
-                
-                Data* x = malloc(sizeof(Data) * 2);
-                x[0].payload = malloc(l);
-                memcpy(x[0].payload, data, l);
-                x[0].len = l;
-
-                x[1].payload = 0;
-                x[1].len = 0;
-                *out = x;
-
-                return SUCCESS;
-            }
-        }
-        return DoesNotExist;
-    } else if (rp) {
-        size_t count = 0;
-        Data* x = NULL;
-        Row row;
-        while (row = csv_next(csv)) {
-            size_t l;
-            csv_row_next(row, &l);
-            char* rp2 = csv_row_next(row, &l);
-            if (rp2 == NULL) {
-                continue;
-            }
-            if (l == strlen(id) && strncmp(rp, rp2, l) == 0) { // found
-                char* data = csv_row_next(row, &l);        
-                if (data == NULL) {
-                    continue; // TODO: just continue if data is malformed
-                }
-
-                count++;
-
-                if (count == 1) {
-                    x = malloc(sizeof(Data) * 2);
-                } else {
-                    x = realloc(x, sizeof(Data) * (count + 1));
-                }
-                
-                x[count - 1].payload = malloc(l);
-                memcpy(x[count - 1].payload, data, l);
-                x[count - 1].len = l;
-            }
-        }
-
-        if (count == 0) {
+        Entry e = Tresor_entry_get(db, id);
+        if (!e) {
+            printf("warning: no entry with id %s found", id);
+            Tresor_deinit(db);
             return DoesNotExist;
-        } else {
-            x[count].payload = 0;
-            x[count].len = 0;
-            *out = x;
-            return SUCCESS;
         }
-    } else {
-        // TODO: get all
+
+        const char* data = Tresor_entry_field_get(e, "Data");
+        if (!data) {
+            printf("error: no Data field for entry with id %s", id);
+            Tresor_deinit(db);
+            return DoesNotExist;
+        }
+        
+        Data* x = malloc(sizeof(Data) * 2);
+        x[0].payload = data;
+        x[0].len = strlen(data);
+
+        x[1].payload = 0;
+        x[1].len = 0;
+        *out = x;
+
+        ret = SUCCESS;
+    } else if (rp) {
+        char* k = "Url:";
+        char* filter = malloc(strlen(k) + strlen(rp) + 1);
+        memcpy(&filter[0], k, 4);
+        memcpy(&filter[4], rp, strlen(rp));
+        filter[strlen(k) + strlen(rp)] = 0;
+        
+        Data* x = NULL;
+        size_t l = 0;
+        void** entries = Tresor_entry_get_many(db, filter);
+        if (!entries) {
+            printf("error: no entries found for relying party %s", rp);
+            free(filter);
+            Tresor_deinit(db);
+            return DoesNotExist;
+        }
+        while (*entries) {
+            const char* data = Tresor_entry_field_get(*entries, "Data");
+            if (!data) {
+                continue;
+            }
+
+            l++;
+            if (l == 1) {
+                x = malloc(sizeof(Data));
+            } else {
+                x = realloc(x, sizeof(Data) * l);
+            }
+            
+            x[l-1].payload = data;
+            x[l-1].len = strlen(data);
+
+            entries++;
+        }
+
+        if (x != NULL) {
+            x = realloc(x, sizeof(Data) * (l + 1));
+            x[l].payload = 0;
+            x[l].len = 0;
+            *out = x;
+            ret = SUCCESS;
+        }
+
+        free(filter);
     }
 
-    csv_close(csv);
-
-    return DoesNotExist;
+    Tresor_deinit(db);
+    return ret;
 }
 
 int auth_write(const char* id, const char* rp, const char* data, size_t data_len) {
     int ret = SUCCESS;
-    Csv csv = csv_open(CSV_PATH);
-    if (csv == NULL) {
-        printf("error: unable to open file %s\n", CSV_PATH);
+    Tresor db = Tresor_open(PATH, PW);
+    if (!db) {
+        printf("error: unable to load db at %s", PATH);
         return DoesNotExist;
     }
-    
-    size_t sl = strlen(id) + strlen(rp) + data_len + 2;
-    char* s = malloc(sl);
-    sprintf(s, "%s,%s,%.*s", id, rp, data_len, data);
-    
-    int found = 0; 
-    size_t index = 0;
-    Row row;
-    while (row = csv_next(csv)) {
-        size_t l;
-        char* id2 = csv_row_next(row, &l);
-        if (id2 == NULL) {
-            continue;
+
+    Entry e = Tresor_entry_get(db, id);
+    if (!e) {
+        if (Tresor_entry_create(db, id) != ERR_SUCCESS) {
+            printf("error: unable to create entry for id %s", id);
+            Tresor_deinit(db);
+            return Other;
         }
-        if (l == strlen(id) && strncmp(id, id2, l) == 0) { // found
-            printf("csv write: found at index %d", index);
-            found = 1;
-            if (csv_set(csv, index, s, sl) < 0) {
-                printf("error: unable to update csv file\n");
-                ret = Other;
-            }
-            break;
+        e = Tresor_entry_get(db, id);
+        if (Tresor_entry_field_add(e, "Url", rp) != ERR_SUCCESS) {
+            printf("error: unable to set Url (%s) for entry with id %s", rp, id);
+            Tresor_deinit(db);
+            return Other;
         }
-        index++;
+        // TODO: remove data_len and expect all pointers to be null terminated
+        char* d = malloc(data_len + 1);
+        memcpy(d, data, data_len);
+        d[data_len] = 0;
+        if (Tresor_entry_field_add(e, "Data", d) != ERR_SUCCESS) {
+            printf("error: unable to persist Data for entry with id %s", id);
+            free(d);
+            Tresor_deinit(db);
+            return Other;
+        }
+        free(d);
+    } else {
+        // TODO: remove data_len and expect all pointers to be null terminated
+        char* d = malloc(data_len + 1);
+        memcpy(d, data, data_len);
+        d[data_len] = 0;
+        if (Tresor_entry_field_update(e, "Data", d) != ERR_SUCCESS) {
+            printf("error: unable to update Data for entry with id %s", id);
+            free(d);
+            Tresor_deinit(db);
+            return Other;
+        }
+        free(d);
     }
 
-    if (!found) {
-        printf("csv write: not found");
-        if (csv_append(csv, s, sl) < 0) {
-            printf("error: unable to update csv file\n");
-            ret = Other;
-        }
-    }
-    
-    free(s);
-    csv_write(csv, NULL); // we write to the same file we read from
-    csv_close(csv);
+    Tresor_seal(db, PATH, PW);
+    Tresor_deinit(db);
     return ret;
 }
 
@@ -171,6 +175,22 @@ int main() {
     // -------------------------------------------------------
     // Init Start
     // -------------------------------------------------------
+
+    Tresor db = Tresor_open(PATH, PW);
+    if (!db) {
+        printf("info: no database found. Creating new one...");
+        db = Tresor_new("keypass");
+        if (!db) {
+            printf("error: unable to create database");
+            exit(1);
+        }
+        if (Tresor_seal(db, PATH, PW) != ERR_SUCCESS) {
+            printf("error: unable to persist database");
+            exit(1);
+        }
+        printf("info: database created in `%s`", PATH);
+    }
+    Tresor_deinit(db);
     
     // Instantiate the authenticator
     void* auth = auth_init(c);

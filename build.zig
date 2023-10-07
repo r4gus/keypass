@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const csv_dep = b.dependency("csv", .{
+    const tresor_dep = b.dependency("tresor", .{
         .target = target,
         .optimize = optimize,
     });
@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibrary(keylib_dep.artifact("keylib"));
     exe.linkLibrary(keylib_dep.artifact("uhid"));
-    exe.linkLibrary(csv_dep.artifact("csv"));
+    exe.linkLibrary(tresor_dep.artifact("tresor"));
     exe.linkLibC();
     b.installArtifact(exe);
 
