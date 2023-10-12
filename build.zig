@@ -20,9 +20,15 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.addCSourceFiles(&.{
+        "src/authenticator.c",
+        "src/authenticatorwin.c",
+        "src/resources.c",
+    }, &.{});
     exe.linkLibrary(keylib_dep.artifact("keylib"));
     exe.linkLibrary(keylib_dep.artifact("uhid"));
     exe.linkLibrary(tresor_dep.artifact("tresor"));
+    exe.linkSystemLibrary("gtk4");
     exe.linkLibC();
     b.installArtifact(exe);
 
