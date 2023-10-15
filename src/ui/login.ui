@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <template class="LoginWidget" parent="GtkBox">
+        <property name="visible">True</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">Master Password:</property>
+                <property name="margin-start">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <!--<layout>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="padding">9</property>
+                    <property name="position">0</property>
+                </layout>-->
+              </object>
+            </child>
+            <child>
+                <object class="GtkPasswordEntry" id="pwentry">
+                    <property name="visible">True</property>
+                    <property name="margin-start">10</property>
+                    <property name="margin-end">10</property>
+                    <property name="margin-top">6</property>
+                    <property name="margin-bottom">6</property>
+              </object>
+              <!--<layout>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="padding">9</property>
+                <property name="position">1</property>
+              </layout>-->
+            </child>
+          </object>
+          <!--<layout>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </layout>-->
+        </child>
+        <child>
+          <placeholder/>
+        </child>
+        <child>
+            <object class="GtkSeparator">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+            </object>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <object class="GtkButton" id="pwsubmit">
+                <property name="label" translatable="yes">OK</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="margin-start">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+              </object>
+              <!--<layout>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </layout>-->
+            </child>
+          </object>
+          <!--<layout>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </layout>-->
+    </child>
+  </template>
+</interface>

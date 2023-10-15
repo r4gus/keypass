@@ -10,12 +10,12 @@
 
 int up(const char* info, const char* user, const char* rp) {
     printf("up\n");
-    return 1;
+    return UpResult_Accepted;
 }
 
 int uv() {
     printf("uv\n");
-    return Accepted;
+    return UpResult_Accepted;
 }
 
 int select_cred(const char* rpId, char** users) {
@@ -23,38 +23,38 @@ int select_cred(const char* rpId, char** users) {
     return -1;
 }
 
-int auth_read(const char* id, const char* rp, Data** out) {
-    int ret = DoesNotExist;
+int auth_read(const char* id, const char* rp, char*** out) {
+    int ret = Error_DoesNotExist;
     Tresor db = Tresor_open(PATH, PW);
-    if (!db) {
-        printf("error: unable to load db at %s", PATH);
-        return DoesNotExist;
+    if (db == NULL) {
+        printf("error: unable to load db at %s\n", PATH);
+        fflush(stdout);
+        return Error_DoesNotExist;
     }
 
     if (id) {
         Entry e = Tresor_entry_get(db, id);
-        if (!e) {
-            printf("warning: no entry with id %s found", id);
+        if (e == NULL) {
+            printf("warning: no entry with id %s found\n", id);
+            fflush(stdout);
             Tresor_deinit(db);
-            return DoesNotExist;
+            return Error_DoesNotExist;
         }
 
-        const char* data = Tresor_entry_field_get(e, "Data");
-        if (!data) {
-            printf("error: no Data field for entry with id %s", id);
+        char* data = Tresor_entry_field_get(e, "Data");
+        if (data == NULL) {
+            printf("error: no Data field for entry with id %s\n", id);
+            fflush(stdout);
             Tresor_deinit(db);
-            return DoesNotExist;
+            return Error_DoesNotExist;
         }
         
-        Data* x = malloc(sizeof(Data) * 2);
-        x[0].payload = data;
-        x[0].len = strlen(data);
-
-        x[1].payload = 0;
-        x[1].len = 0;
+        char** x = malloc(sizeof(char*) * 2);
+        x[0] = data;
+        x[1] = NULL;
         *out = x;
 
-        ret = SUCCESS;
+        ret = Error_SUCCESS;
     } else if (rp) {
         char* k = "Url:";
         char* filter = malloc(strlen(k) + strlen(rp) + 1);
@@ -62,40 +62,39 @@ int auth_read(const char* id, const char* rp, Data** out) {
         memcpy(&filter[4], rp, strlen(rp));
         filter[strlen(k) + strlen(rp)] = 0;
         
-        Data* x = NULL;
+        char** x = NULL;
         size_t l = 0;
         void** entries = Tresor_entry_get_many(db, filter);
         if (!entries) {
-            printf("error: no entries found for relying party %s", rp);
+            printf("error: no entries found for relying party %s\n", rp);
+            fflush(stdout);
             free(filter);
             Tresor_deinit(db);
-            return DoesNotExist;
+            return Error_DoesNotExist;
         }
         while (*entries) {
-            const char* data = Tresor_entry_field_get(*entries, "Data");
+            char* data = Tresor_entry_field_get(*entries, "Data");
             if (!data) {
                 continue;
             }
 
             l++;
             if (l == 1) {
-                x = malloc(sizeof(Data));
+                x = malloc(sizeof(char*));
             } else {
-                x = realloc(x, sizeof(Data) * l);
+                x = realloc(x, sizeof(char*) * l);
             }
             
-            x[l-1].payload = data;
-            x[l-1].len = strlen(data);
+            x[l-1] = data; 
 
             entries++;
         }
 
         if (x != NULL) {
-            x = realloc(x, sizeof(Data) * (l + 1));
-            x[l].payload = 0;
-            x[l].len = 0;
+            x = realloc(x, sizeof(char*) * (l + 1));
+            x[l] = NULL;
             *out = x;
-            ret = SUCCESS;
+            ret = Error_SUCCESS;
         }
 
         free(filter);
@@ -106,36 +105,43 @@ int auth_read(const char* id, const char* rp, Data** out) {
 }
 
 int auth_write(const char* id, const char* rp, const char* data) {
-    int ret = SUCCESS;
+    fflush(stdout);
+
+    int ret = Error_SUCCESS;
     Tresor db = Tresor_open(PATH, PW);
     if (!db) {
-        printf("error: unable to load db at %s", PATH);
-        return DoesNotExist;
+        printf("error: unable to load db at %s\n", PATH);
+        fflush(stdout);
+        return Error_DoesNotExist;
     }
 
     Entry e = Tresor_entry_get(db, id);
     if (!e) {
         if (Tresor_entry_create(db, id) != ERR_SUCCESS) {
-            printf("error: unable to create entry for id %s", id);
+            printf("error: unable to create entry for id %s\n", id);
+            fflush(stdout);
             Tresor_deinit(db);
-            return Other;
+            return Error_Other;
         }
         e = Tresor_entry_get(db, id);
         if (Tresor_entry_field_add(e, "Url", rp) != ERR_SUCCESS) {
-            printf("error: unable to set Url (%s) for entry with id %s", rp, id);
+            printf("error: unable to set Url (%s) for entry with id %s\n", rp, id);
+            fflush(stdout);
             Tresor_deinit(db);
-            return Other;
+            return Error_Other;
         }
         if (Tresor_entry_field_add(e, "Data", data) != ERR_SUCCESS) {
-            printf("error: unable to persist Data for entry with id %s", id);
+            printf("error: unable to persist Data for entry with id %s\n", id);
+            fflush(stdout);
             Tresor_deinit(db);
-            return Other;
+            return Error_Other;
         }
     } else {
         if (Tresor_entry_field_update(e, "Data", data) != ERR_SUCCESS) {
-            printf("error: unable to update Data for entry with id %s", id);
+            printf("error: unable to update Data for entry with id %s\n", id);
+            fflush(stdout);
             Tresor_deinit(db);
-            return Other;
+            return Error_Other;
         }
     }
 
@@ -144,7 +150,7 @@ int auth_write(const char* id, const char* rp, const char* data) {
     return ret;
 }
 
-int auth_delete(const char* id, const char* rp) {
+int auth_delete(const char* id) {
     printf("delete\n");
     return -1;
 }

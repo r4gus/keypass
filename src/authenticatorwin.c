@@ -2,6 +2,7 @@
 
 #include "authenticator.h"
 #include "authenticatorwin.h"
+#include "login.h"
 
 struct _AuthenticatorAppWindow
 {
@@ -20,7 +21,7 @@ authenticator_app_window_init(AuthenticatorAppWindow* win)
 
     gtk_widget_init_template(GTK_WIDGET(win));
 
-    builder = gtk_builder_new_from_resource ("/de/thesugar/keypass/menu.ui");
+    builder = gtk_builder_new_from_resource ("/de/thesugar/keypass/ui/menu.ui");
     menu = G_MENU_MODEL (gtk_builder_get_object (builder, "menu"));
     gtk_menu_button_set_menu_model (GTK_MENU_BUTTON (win->gears), menu);
     g_object_unref (builder);
@@ -29,7 +30,9 @@ authenticator_app_window_init(AuthenticatorAppWindow* win)
 static void
 authenticator_app_window_class_init(AuthenticatorAppWindowClass* class)
 {
-    gtk_widget_class_set_template_from_resource(GTK_WIDGET_CLASS(class), "/de/thesugar/keypass/window.ui");
+    g_type_ensure(LOGIN_WIDGET_TYPE);
+
+    gtk_widget_class_set_template_from_resource(GTK_WIDGET_CLASS(class), "/de/thesugar/keypass/ui/window.ui");
     gtk_widget_class_bind_template_child (GTK_WIDGET_CLASS (class), AuthenticatorAppWindow, gears);
 }
 
