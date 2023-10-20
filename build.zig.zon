@@ -4,11 +4,15 @@
     .dependencies = .{
         .keylib = .{
             .url = "https://codeberg.org/r4gus/keylib/archive/master.tar.gz",
-            .hash = "122085b081b74ecf166d08962115f68a85ea046864ecca390b0d96d8b44cb7813365",
+            .hash = "1220c66f595ec4bbc776771da819376dd43132746c7fbf44264f2bc3930aacbdec96",
         },
         .tresor = .{
             .url = "https://codeberg.org/r4gus/tresor/archive/master.tar.gz",
             .hash = "122023e07245a78392d552867d22ba7c9371b2a307bb7c630fef57ea83a6d23ae323",
+        },
+        .dvui = .{
+            .url = "https://github.com/david-vanderson/dvui/archive/master.tar.gz",
+            .hash = "122051bfbdecab3fdc5d49d9a4d16d67825d9500bb21a5520e1e4af555bcc03cd641",
         },
     },
 }

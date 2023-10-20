@@ -14,15 +14,30 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const exe = b.addExecutable(.{
-        .name = "keypass",
-        .root_source_file = .{ .path = "src/main.c" },
+    const dvui_dep = b.dependency("dvui", .{
         .target = target,
         .optimize = optimize,
     });
-    exe.linkLibrary(keylib_dep.artifact("keylib"));
-    exe.linkLibrary(keylib_dep.artifact("uhid"));
-    exe.linkLibrary(tresor_dep.artifact("tresor"));
+
+    const exe = b.addExecutable(.{
+        .name = "keypass",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.addModule("keylib", keylib_dep.module("keylib"));
+    exe.addModule("uhid", keylib_dep.module("uhid"));
+    exe.addModule("tresor", tresor_dep.module("tresor"));
+
+    exe.addModule("dvui", dvui_dep.module("dvui"));
+    exe.addModule("SDLBackend", dvui_dep.module("SDLBackend"));
+    const freetype_dep = dvui_dep.builder.dependency("freetype", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.linkLibrary(freetype_dep.artifact("freetype"));
+    exe.linkSystemLibrary("SDL2");
+
     exe.linkLibC();
     b.installArtifact(exe);
 
