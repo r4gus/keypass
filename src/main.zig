@@ -22,7 +22,7 @@ const AppState = struct {
     pub const StateTag = enum {
         login,
         main,
-        uv,
+        up,
     };
 
     pub const State = union(StateTag) {
@@ -34,8 +34,11 @@ const AppState = struct {
         main: struct {
             t: std.Thread,
         },
-        uv: struct {
+        up: struct {
             accepted: ?bool = null,
+            info: ?[]const u8 = null,
+            user: ?[]const u8 = null,
+            rp: ?[]const u8 = null,
         },
     };
 
@@ -61,7 +64,7 @@ const AppState = struct {
             return switch (self.states.items[self.states.items.len - 1]) {
                 .login => StateTag.login,
                 .main => StateTag.main,
-                .uv => StateTag.uv,
+                .up => StateTag.up,
             };
         }
         return null;
@@ -73,6 +76,12 @@ const AppState = struct {
         try self.states.append(state);
     }
 
+    pub fn popState(self: *AppState) void {
+        self.lock.lock();
+        defer self.lock.unlock();
+        _ = self.states.pop();
+    }
+
     pub fn deinit(self: *AppState) void {
         for (self.states.items) |*item| {
             switch (item.*) {
@@ -80,7 +89,7 @@ const AppState = struct {
                 .main => |*m| {
                     _ = m;
                 },
-                .uv => {},
+                .up => {},
             }
         }
         self.states.deinit();
@@ -184,13 +193,31 @@ fn dvui_frame() !void {
         switch (state) {
             .login => try login_frame(),
             .main => try main_frame(),
-            .uv => try uv_frame(),
+            .up => try up_frame(),
         }
     }
 }
 
-fn uv_frame() !void {
-    try dvui.label(@src(), "nothing to see here", .{}, .{});
+fn up_frame() !void {
+    if (app_state.lockState()) |state| {
+        defer app_state.unlockState();
+        _ = state;
+    }
+
+    try dvui.label(@src(), "User Presence Check", .{}, .{});
+
+    {
+        var hbox = try dvui.box(@src(), .horizontal, .{ .expand = .horizontal });
+        defer hbox.deinit();
+
+        if (try dvui.button(@src(), "Accept", .{})) {
+            app_state.states.items[app_state.states.items.len - 1].up.accepted = true;
+        }
+
+        if (try dvui.button(@src(), "Denie", .{})) {
+            app_state.states.items[app_state.states.items.len - 1].up.accepted = false;
+        }
+    }
 }
 
 fn main_frame() !void {
@@ -203,8 +230,6 @@ fn login_frame() !void {
     if (app_state.lockState()) |state| {
         defer app_state.unlockState();
 
-        var vbox = try dvui.box(@src(), .vertical, .{ .expand = .horizontal });
-        defer vbox.deinit();
         {
             var hbox = try dvui.box(@src(), .horizontal, .{ .expand = .horizontal });
             defer hbox.deinit();
@@ -290,10 +315,21 @@ fn strlen(s: [*c]const u8) usize {
 // /////////////////////////////////////////
 
 const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
+const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
 const Error = keylib.ctap.authenticator.callbacks.Error;
 
-pub fn my_uv() callconv(.C) UpResult {
-    return UpResult.Accepted;
+pub fn my_uv(
+    /// Information about the context (e.g., make credential)
+    info: [*c]const u8,
+    /// Information about the user (e.g., `David Sugar (david@example.com)`)
+    user: [*c]const u8,
+    /// Information about the relying party (e.g., `Github (github.com)`)
+    rp: [*c]const u8,
+) callconv(.C) UvResult {
+    _ = info;
+    _ = user;
+    _ = rp;
+    return UvResult.Accepted;
 }
 
 pub fn my_up(
@@ -304,11 +340,25 @@ pub fn my_up(
     /// Information about the relying party (e.g., `Github (github.com)`)
     rp: [*c]const u8,
 ) callconv(.C) UpResult {
-    _ = info;
-    _ = user;
-    _ = rp;
+    if (info) |i| {
+        std.log.info("{s}", .{i});
+    }
 
-    return UpResult.Accepted;
+    app_state.pushState(.{ .up = .{
+        .info = if (info != null) info[0..strlen(info)] else null,
+        .user = if (user != null) user[0..strlen(user)] else null,
+        .rp = if (rp != null) rp[0..strlen(rp)] else null,
+    } }) catch unreachable;
+    defer app_state.popState();
+    const begin = std.time.milliTimestamp();
+
+    while (std.time.milliTimestamp() - begin < 60_000) {
+        if (app_state.states.items[app_state.states.items.len - 1].up.accepted) |accepted| {
+            return if (accepted) .Accepted else .Denied;
+        }
+    }
+
+    return UpResult.Timeout;
 }
 
 pub fn my_select(
@@ -520,5 +570,6 @@ fn auth_fn() !void {
                 }
             }
         }
+        std.time.sleep(10000000);
     }
 }
