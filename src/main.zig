@@ -22,7 +22,6 @@ const AppState = struct {
     pub const StateTag = enum {
         login,
         main,
-        up,
     };
 
     pub const State = union(StateTag) {
@@ -33,12 +32,6 @@ const AppState = struct {
         },
         main: struct {
             t: std.Thread,
-        },
-        up: struct {
-            accepted: ?bool = null,
-            info: ?[]const u8 = null,
-            user: ?[]const u8 = null,
-            rp: ?[]const u8 = null,
         },
     };
 
@@ -64,7 +57,6 @@ const AppState = struct {
             return switch (self.states.items[self.states.items.len - 1]) {
                 .login => StateTag.login,
                 .main => StateTag.main,
-                .up => StateTag.up,
             };
         }
         return null;
@@ -89,7 +81,6 @@ const AppState = struct {
                 .main => |*m| {
                     _ = m;
                 },
-                .up => {},
             }
         }
         self.states.deinit();
@@ -99,6 +90,8 @@ const AppState = struct {
 var app_state = AppState{
     .states = std.ArrayList(AppState.State).init(gpa),
 };
+
+var win: dvui.Window = undefined;
 
 /// This example shows how to use the dvui for a normal application:
 /// - dvui renders the whole application
@@ -119,7 +112,7 @@ pub fn main() !void {
     defer backend.deinit();
 
     // init dvui Window (maps onto a single OS window)
-    var win = try dvui.Window.init(@src(), 0, gpa, backend.backend());
+    win = try dvui.Window.init(@src(), 0, gpa, backend.backend());
     win.content_scale = backend.initial_scale;
     defer win.deinit();
 
@@ -193,29 +186,6 @@ fn dvui_frame() !void {
         switch (state) {
             .login => try login_frame(),
             .main => try main_frame(),
-            .up => try up_frame(),
-        }
-    }
-}
-
-fn up_frame() !void {
-    if (app_state.lockState()) |state| {
-        defer app_state.unlockState();
-        _ = state;
-    }
-
-    try dvui.label(@src(), "User Presence Check", .{}, .{});
-
-    {
-        var hbox = try dvui.box(@src(), .horizontal, .{ .expand = .horizontal });
-        defer hbox.deinit();
-
-        if (try dvui.button(@src(), "Accept", .{})) {
-            app_state.states.items[app_state.states.items.len - 1].up.accepted = true;
-        }
-
-        if (try dvui.button(@src(), "Denie", .{})) {
-            app_state.states.items[app_state.states.items.len - 1].up.accepted = false;
         }
     }
 }
@@ -344,17 +314,48 @@ pub fn my_up(
         std.log.info("{s}", .{i});
     }
 
-    app_state.pushState(.{ .up = .{
-        .info = if (info != null) info[0..strlen(info)] else null,
-        .user = if (user != null) user[0..strlen(user)] else null,
-        .rp = if (rp != null) rp[0..strlen(rp)] else null,
-    } }) catch unreachable;
-    defer app_state.popState();
+    const dialogsFollowup = struct {
+        var confirm: ?bool = null;
+        fn callafter(id: u32, response: dvui.enums.DialogResponse) dvui.Error!void {
+            _ = id;
+            confirm = (response == dvui.enums.DialogResponse.ok);
+        }
+    };
+
     const begin = std.time.milliTimestamp();
 
+    const title = std.fmt.allocPrint(gpa, "User Presence Check{s}{s}", .{
+        if (info != null) ": " else "",
+        if (info != null) info[0..strlen(info)] else "",
+    }) catch blk: {
+        break :blk "oops";
+    };
+
+    var message = std.fmt.allocPrint(gpa, "Please confirm your presence for {s} {s}{s}{s} by clicking ok", .{
+        if (rp != null) rp[0..strlen(rp)] else "???",
+        if (user != null) "(" else "",
+        if (user != null) user[0..strlen(user)] else "",
+        if (user != null) "(" else "",
+    }) catch blk: {
+        break :blk "oops";
+    };
+
+    dvui.dialog(@src(), .{
+        .window = &win,
+        .modal = false,
+        .title = title,
+        .message = message,
+        .callafterFn = dialogsFollowup.callafter,
+    }) catch return .Denied;
+
     while (std.time.milliTimestamp() - begin < 60_000) {
-        if (app_state.states.items[app_state.states.items.len - 1].up.accepted) |accepted| {
-            return if (accepted) .Accepted else .Denied;
+        if (dialogsFollowup.confirm != null) {
+            defer dialogsFollowup.confirm = null;
+            if (dialogsFollowup.confirm.?) {
+                return .Accepted;
+            } else {
+                return .Denied;
+            }
         }
     }
 
