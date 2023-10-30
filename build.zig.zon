@@ -3,8 +3,8 @@
     .version = "0.1.0",
     .dependencies = .{
         .keylib = .{
-            .url = "https://codeberg.org/r4gus/keylib/archive/master.tar.gz",
-            .hash = "1220d79b9545c316f40721d845d99e0a0a5823e37ee706ccbb18fff5c24e3fe97145",
+            .url = "https://codeberg.org/r4gus/keylib/archive/client.tar.gz",
+            .hash = "1220c3a07c99dd499066569530ebc4922584902dbf0c2dc76f43ea12b21ffe88765e",
         },
         .tresor = .{
             .url = "https://codeberg.org/r4gus/tresor/archive/master.tar.gz",

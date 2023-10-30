@@ -5,6 +5,7 @@ const uhid = @import("uhid");
 const dvui = @import("dvui");
 const Backend = @import("SDLBackend");
 const db = @import("db.zig");
+const style = @import("style.zig");
 
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa = gpa_instance.allocator();
@@ -116,6 +117,8 @@ pub fn main() !void {
     win.content_scale = backend.initial_scale;
     defer win.deinit();
 
+    win.theme = &style.keypass_light;
+
     // //////////////////////////////////////
     // App Init
     // //////////////////////////////////////
@@ -156,26 +159,56 @@ pub fn main() !void {
     }
 }
 
+var show_dialog: bool = false;
 fn dvui_frame() !void {
     {
         var m = try dvui.menu(@src(), .horizontal, .{ .background = true, .expand = .horizontal });
         defer m.deinit();
 
-        if (try dvui.menuItemLabel(@src(), "File", .{ .submenu = true }, .{ .expand = .none })) |r| {
-            var fw = try dvui.popup(@src(), dvui.Rect.fromPoint(dvui.Point{ .x = r.x, .y = r.y + r.h }), .{});
+        if (try dvui.menuItemLabel(@src(), "Database", .{ .submenu = true }, .{
+            .expand = .none,
+            .corner_radius = dvui.Rect.all(0),
+        })) |r| {
+            var fw = try dvui.popup(
+                @src(),
+                dvui.Rect.fromPoint(dvui.Point{ .x = r.x, .y = r.y + r.h }),
+                .{
+                    .corner_radius = dvui.Rect.all(0),
+                },
+            );
             defer fw.deinit();
 
-            if (try dvui.menuItemLabel(@src(), "Close Menu", .{}, .{}) != null) {
+            if (try dvui.menuItemLabel(@src(), "New Database...", .{}, .{
+                .corner_radius = dvui.Rect.all(0),
+            }) != null) {
+                dvui.menuGet().?.close();
+            }
+
+            if (try dvui.menuItemLabel(@src(), "Close Menu", .{}, .{
+                .corner_radius = dvui.Rect.all(0),
+            }) != null) {
                 dvui.menuGet().?.close();
             }
         }
 
-        if (try dvui.menuItemLabel(@src(), "Edit", .{ .submenu = true }, .{ .expand = .none })) |r| {
-            var fw = try dvui.popup(@src(), dvui.Rect.fromPoint(dvui.Point{ .x = r.x, .y = r.y + r.h }), .{});
+        if (try dvui.menuItemLabel(@src(), "Help", .{ .submenu = true }, .{
+            .expand = .none,
+            .corner_radius = dvui.Rect.all(0),
+        })) |r| {
+            var fw = try dvui.popup(
+                @src(),
+                dvui.Rect.fromPoint(dvui.Point{ .x = r.x, .y = r.y + r.h }),
+                .{
+                    .corner_radius = dvui.Rect.all(0),
+                },
+            );
             defer fw.deinit();
-            _ = try dvui.menuItemLabel(@src(), "Cut", .{}, .{});
-            _ = try dvui.menuItemLabel(@src(), "Copy", .{}, .{});
-            _ = try dvui.menuItemLabel(@src(), "Paste", .{}, .{});
+            if (try dvui.menuItemLabel(@src(), "About", .{}, .{
+                .corner_radius = dvui.Rect.all(0),
+            }) != null) {
+                dvui.menuGet().?.close();
+                show_dialog = true;
+            }
         }
     }
 
@@ -188,6 +221,27 @@ fn dvui_frame() !void {
             .main => try main_frame(),
         }
     }
+
+    if (show_dialog) {
+        try dialogInfo();
+    }
+}
+
+pub fn dialogInfo() !void {
+    var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &show_dialog }, .{});
+    defer dialog_win.deinit();
+
+    try dvui.windowHeader("About KeyPass", "", &show_dialog);
+    try dvui.label(@src(), "About", .{}, .{ .font_style = .title_4 });
+    try dvui.label(@src(), "Website: https://codeberg.org/r4gus/keypass", .{}, .{});
+    try dvui.label(@src(), "KeyPass and its corresponding library keylib\nare distributed under the MIT license.", .{}, .{});
+    try dvui.label(@src(), "Project Maintainers: David Sugar (r4gus)", .{}, .{});
+    try dvui.label(@src(), "Special thanks to David Vanderson and\nthe whole Zig community.", .{}, .{});
+    _ = dvui.spacer(@src(), .{}, .{ .expand = .vertical });
+    try dvui.label(@src(), "Dependencies", .{}, .{ .font_style = .title_4 });
+    try dvui.label(@src(), "keylib: https://codeberg.org/r4gus/keylib", .{}, .{});
+    try dvui.label(@src(), "tresor: https://codeberg.org/r4gus/tresor", .{}, .{});
+    try dvui.label(@src(), "dvui: https://github.com/david-vanderson/dvui", .{}, .{});
 }
 
 fn main_frame() !void {
@@ -200,16 +254,31 @@ fn login_frame() !void {
     if (app_state.lockState()) |state| {
         defer app_state.unlockState();
 
-        {
-            var hbox = try dvui.box(@src(), .horizontal, .{ .expand = .horizontal });
-            defer hbox.deinit();
+        var box = try dvui.box(@src(), .vertical, .{
+            .margin = dvui.Rect{ .x = 50.0, .y = 50.0, .w = 50.0, .h = 75.0 },
+            .padding = dvui.Rect.all(10),
+            .background = true,
+            .expand = .both,
+            .border = dvui.Rect.all(3),
+        });
+        defer box.deinit();
 
-            try dvui.label(@src(), "Enter Password:", .{}, .{ .gravity_y = 0.5 });
+        {
+            try dvui.label(@src(), "Enter Password:", .{}, .{ .font_style = .title_4 });
+
+            var hbox = try dvui.box(@src(), .horizontal, .{
+                //.margin = dvui.Rect.all(50),
+                .expand = .horizontal,
+            });
+            defer hbox.deinit();
 
             var te = try dvui.textEntry(@src(), .{
                 .text = &state.login.pw,
                 .password_char = if (state.login.pw_obf) "*" else null,
-            }, .{});
+            }, .{
+                .expand = .horizontal,
+                .corner_radius = dvui.Rect.all(0),
+            });
             te.deinit();
 
             if (try dvui.buttonIcon(
@@ -217,25 +286,37 @@ fn login_frame() !void {
                 12,
                 "toggle",
                 if (state.login.pw_obf) dvui.entypo.eye_with_line else dvui.entypo.eye,
-                .{ .gravity_y = 0.5 },
+                .{
+                    .gravity_y = 0.5,
+                    .corner_radius = dvui.Rect.all(0),
+                },
             )) {
                 state.login.pw_obf = !state.login.pw_obf;
             }
         }
         {
-            var hbox = try dvui.box(@src(), .horizontal, .{ .expand = .horizontal });
-            defer hbox.deinit();
+            try dvui.label(@src(), "Database File:", .{}, .{ .font_style = .title_4 });
 
-            try dvui.label(@src(), "Database File:", .{}, .{ .gravity_y = 0.5 });
+            var hbox = try dvui.box(@src(), .horizontal, .{
+                .expand = .horizontal,
+            });
+            defer hbox.deinit();
 
             var te = try dvui.textEntry(@src(), .{
                 .text = &state.login.path,
                 .password_char = null,
-            }, .{});
+            }, .{
+                .expand = .horizontal,
+                .corner_radius = dvui.Rect.all(0),
+            });
             te.deinit();
         }
         {
-            if (try dvui.button(@src(), "Unlock", .{})) blk: {
+            if (try dvui.button(@src(), "Unlock", .{
+                .corner_radius = dvui.Rect.all(0),
+                .gravity_x = 1.0,
+                .gravity_y = 1.0,
+            })) blk: {
                 var database = db.open(
                     state.login.path[0..strlen(&state.login.path)],
                     state.login.pw[0..strlen(&state.login.pw)],
@@ -349,6 +430,7 @@ pub fn my_up(
     }) catch return .Denied;
 
     while (std.time.milliTimestamp() - begin < 60_000) {
+        win.refresh();
         if (dialogsFollowup.confirm != null) {
             defer dialogsFollowup.confirm = null;
             if (dialogsFollowup.confirm.?) {
@@ -357,6 +439,7 @@ pub fn my_up(
                 return .Denied;
             }
         }
+        std.time.sleep(10000000);
     }
 
     return UpResult.Timeout;
