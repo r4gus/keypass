@@ -3,11 +3,11 @@
     .version = "0.1.0",
     .dependencies = .{
         .keylib = .{
-            .url = "https://codeberg.org/r4gus/keylib/archive/client.tar.gz",
-            .hash = "1220c3a07c99dd499066569530ebc4922584902dbf0c2dc76f43ea12b21ffe88765e",
+            .url = "https://github.com/r4gus/keylib/archive/client.tar.gz",
+            .hash = "1220304594c7e856191a9216308bf37b6484fc8c8be4dae2db376cf4e9fc44fad75f",
         },
         .tresor = .{
-            .url = "https://codeberg.org/r4gus/tresor/archive/master.tar.gz",
+            .url = "https://github.com/r4gus/tresor/archive/master.tar.gz",
             .hash = "122023e07245a78392d552867d22ba7c9371b2a307bb7c630fef57ea83a6d23ae323",
         },
         .dvui = .{
