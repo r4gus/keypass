@@ -259,7 +259,7 @@ fn login_frame() !void {
             .padding = dvui.Rect.all(10),
             .background = true,
             .expand = .both,
-            .border = dvui.Rect.all(3),
+            //.border = dvui.Rect.all(3),
         });
         defer box.deinit();
 

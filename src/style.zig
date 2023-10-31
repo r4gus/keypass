@@ -5,14 +5,16 @@ const Font = dvui.Font;
 const Theme = dvui.Theme;
 const bitstream_vera = dvui.bitstream_vera;
 
-const accent = Color{ .r = 0xfb, .g = 0xe7, .b = 0xc6 }; //Color{ .r = 0xa0, .g = 0xe7, .b = 0xe5, .a = 210 };
+const accent = Color{ .r = 0, .g = 129, .b = 112 }; //Color{ .r = 0xa0, .g = 0xe7, .b = 0xe5, .a = 210 };
 const success = Color{ .r = 0xb4, .g = 0xf8, .b = 0xc8, .a = 210 };
 const err = Color{ .r = 0xff, .g = 0xae, .b = 0xbc, .a = 210 };
-const control = Color{ .r = 0xfb, .g = 0xe7, .b = 0xc6 };
+const control = Color{ .r = 0, .g = 91, .b = 65 };
+
+const dark_fill = Color.transparent(Color{ .r = 0x1e, .g = 0x1e, .b = 0x1e }, 0.8);
 
 pub var keypass_light = Theme{
     .name = "KeypassLight",
-    .dark = false,
+    .dark = true,
 
     .font_body = Font{ .size = 11, .name = "Vera", .ttf_bytes = bitstream_vera.Vera },
     .font_heading = Font{ .size = 11, .name = "VeraBd", .ttf_bytes = bitstream_vera.VeraBd },
@@ -26,44 +28,45 @@ pub var keypass_light = Theme{
 
     .style_content = .{
         .accent = accent,
-        .text = Color.black,
-        .fill = Color.white,
-        .border = Color.lerp(Color.white, 0.4, Color.black),
-        .hover = Color.lerp(Color.white, 0.2, Color.black),
-        .press = Color.lerp(Color.white, 0.3, Color.black),
+        .text = Color.white,
+        .fill = dark_fill,
+        .border = Color.lerp(control, 0.4, Color.white),
+        .hover = Color.lerp(control, 0.2, Color.white),
+        .press = Color.lerp(control, 0.3, Color.white),
     },
 
     .style_control = .{
-        .accent = control.darken(0.3),
+        .accent = control.lighten(0.3),
+        //.text = Color.white,
         .fill = control,
         .border = Color.lerp(control, 0.4, Color.black),
         .hover = Color.lerp(control, 0.2, Color.black),
         .press = Color.lerp(control, 0.3, Color.black),
     },
-    .style_window = .{ .fill = Color{ .r = 0xff, .g = 0xff, .b = 0xff } },
+    .style_window = .{ .fill = Color{ .r = 35, .g = 45, .b = 63 } },
 
     .style_accent = .{
         .accent = accent.darken(0.3),
         .fill = accent,
         //.text = Color.white,
-        .border = Color.lerp(accent, 0.4, Color.black),
-        .hover = Color.lerp(accent, 0.2, Color.black),
-        .press = Color.lerp(accent, 0.3, Color.black),
+        .border = Color.lerp(accent, 0.4, Color.white),
+        .hover = Color.lerp(accent, 0.2, Color.white),
+        .press = Color.lerp(accent, 0.3, Color.white),
     },
     .style_success = .{
         .accent = success.darken(0.3),
         .fill = success,
         .text = Color.white,
-        .border = Color.lerp(success, 0.4, Color.black),
-        .hover = Color.lerp(success, 0.2, Color.black),
-        .press = Color.lerp(success, 0.3, Color.black),
+        .border = Color.lerp(success, 0.4, Color.white),
+        .hover = Color.lerp(success, 0.2, Color.white),
+        .press = Color.lerp(success, 0.3, Color.white),
     },
     .style_err = .{
         .accent = err.darken(0.3),
         .fill = err,
         .text = Color.white,
-        .border = Color.lerp(err, 0.4, Color.black),
-        .hover = Color.lerp(err, 0.2, Color.black),
-        .press = Color.lerp(err, 0.3, Color.black),
+        .border = Color.lerp(err, 0.4, Color.white),
+        .hover = Color.lerp(err, 0.2, Color.white),
+        .press = Color.lerp(err, 0.3, Color.white),
     },
 };
