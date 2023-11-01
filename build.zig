@@ -27,6 +27,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.addModule("keylib", keylib_dep.module("keylib"));
     exe.addModule("uhid", keylib_dep.module("uhid"));
+    exe.addModule("zbor", keylib_dep.module("zbor"));
     exe.addModule("tresor", tresor_dep.module("tresor"));
 
     exe.addModule("dvui", dvui_dep.module("dvui"));
@@ -36,6 +37,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.linkLibrary(freetype_dep.artifact("freetype"));
+    const stbi_dep = dvui_dep.builder.dependency("stb_image", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.linkLibrary(stbi_dep.artifact("stb_image"));
     exe.linkSystemLibrary("SDL2");
 
     exe.linkLibC();

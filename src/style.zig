@@ -7,7 +7,7 @@ const bitstream_vera = dvui.bitstream_vera;
 
 const accent = Color{ .r = 0, .g = 129, .b = 112 }; //Color{ .r = 0xa0, .g = 0xe7, .b = 0xe5, .a = 210 };
 const success = Color{ .r = 0xb4, .g = 0xf8, .b = 0xc8, .a = 210 };
-const err = Color{ .r = 0xff, .g = 0xae, .b = 0xbc, .a = 210 };
+const err = Color{ .r = 204, .g = 2, .b = 2 };
 const control = Color{ .r = 0, .g = 91, .b = 65 };
 
 const dark_fill = Color.transparent(Color{ .r = 0x1e, .g = 0x1e, .b = 0x1e }, 0.8);

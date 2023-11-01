@@ -1,6 +1,7 @@
 const std = @import("std");
 const tresor = @import("tresor");
 const keylib = @import("keylib");
+const cbor = @import("zbor");
 const uhid = @import("uhid");
 const dvui = @import("dvui");
 const Backend = @import("SDLBackend");
@@ -233,19 +234,130 @@ pub fn dialogInfo() !void {
 
     try dvui.windowHeader("About KeyPass", "", &show_dialog);
     try dvui.label(@src(), "About", .{}, .{ .font_style = .title_4 });
-    try dvui.label(@src(), "Website: https://codeberg.org/r4gus/keypass", .{}, .{});
-    try dvui.label(@src(), "KeyPass and its corresponding library keylib\nare distributed under the MIT license.", .{}, .{});
+
+    {
+        var hbox = try dvui.box(@src(), .horizontal, .{});
+        defer hbox.deinit();
+
+        try dvui.label(@src(), "Website:", .{}, .{});
+        if (try dvui.labelClick(@src(), "https://github.com/r4gus/keypass", .{}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+            try dvui.openURL("https://github.com/r4gus/keypass");
+        }
+    }
+
+    try dvui.label(@src(), "KeyPass and keylib are distributed under the MIT license.", .{}, .{});
     try dvui.label(@src(), "Project Maintainers: David Sugar (r4gus)", .{}, .{});
     try dvui.label(@src(), "Special thanks to David Vanderson and\nthe whole Zig community.", .{}, .{});
     _ = dvui.spacer(@src(), .{}, .{ .expand = .vertical });
     try dvui.label(@src(), "Dependencies", .{}, .{ .font_style = .title_4 });
-    try dvui.label(@src(), "keylib: https://codeberg.org/r4gus/keylib", .{}, .{});
-    try dvui.label(@src(), "tresor: https://codeberg.org/r4gus/tresor", .{}, .{});
-    try dvui.label(@src(), "dvui: https://github.com/david-vanderson/dvui", .{}, .{});
+
+    {
+        var hbox = try dvui.box(@src(), .horizontal, .{});
+        defer hbox.deinit();
+
+        try dvui.label(@src(), "dvui:", .{}, .{});
+        if (try dvui.labelClick(@src(), "https://github.com/david-vanderson/dvui", .{}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+            try dvui.openURL("https://github.com/david-vanderson/dvui");
+        }
+    }
+
+    {
+        var hbox = try dvui.box(@src(), .horizontal, .{});
+        defer hbox.deinit();
+
+        try dvui.label(@src(), "keylib:", .{}, .{});
+        if (try dvui.labelClick(@src(), "https://github.com/r4gus/keylib", .{}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+            try dvui.openURL("https://github.com/r4gus/keylib");
+        }
+    }
+
+    {
+        var hbox = try dvui.box(@src(), .horizontal, .{});
+        defer hbox.deinit();
+
+        try dvui.label(@src(), "tresor:", .{}, .{});
+        if (try dvui.labelClick(@src(), "https://github.com/r4gus/tresor", .{}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+            try dvui.openURL("https://github.com/r4gus/tresor");
+        }
+    }
+
+    {
+        var hbox = try dvui.box(@src(), .horizontal, .{});
+        defer hbox.deinit();
+
+        try dvui.label(@src(), "zbor:", .{}, .{});
+        if (try dvui.labelClick(@src(), "https://github.com/r4gus/zbor", .{}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+            try dvui.openURL("https://github.com/r4gus/zbor");
+        }
+    }
 }
 
 fn main_frame() !void {
-    try dvui.label(@src(), "nothing to see here", .{}, .{});
+    if (DB.database.data.entries) |*entries| {
+        for (entries.*, 0..) |*entry, i| {
+            if (entry.getField("Data", std.time.milliTimestamp())) |data| {
+                var buffer: [1024]u8 = .{0} ** 1024;
+                const slice = try std.fmt.hexToBytes(&buffer, data);
+
+                const cred = cbor.parse(
+                    keylib.ctap.authenticator.Credential,
+                    try cbor.DataItem.new(slice),
+                    .{ .allocator = gpa },
+                ) catch {
+                    continue;
+                };
+                defer cred.deinit(gpa);
+
+                var box = try dvui.box(@src(), .vertical, .{
+                    .margin = dvui.Rect{ .x = 8.0, .y = 8.0, .w = 8.0 },
+                    .padding = dvui.Rect.all(8),
+                    .background = true,
+                    .expand = .horizontal,
+                    .id_extra = i,
+                });
+                defer box.deinit();
+
+                {
+                    //var rp_box = try dvui.box(@src(), .vertical, .{});
+                    //defer rp_box.deinit();
+
+                    {
+                        var hbox = try dvui.box(@src(), .horizontal, .{});
+                        defer hbox.deinit();
+
+                        try dvui.label(@src(), "Relying Party:", .{}, .{});
+                        if (try dvui.labelClick(@src(), "{s}", .{cred.rp.id}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+                            if (cred.rp.id.len < 5 or !std.mem.eql(u8, "https", cred.rp.id[0..5])) {
+                                var rps = try gpa.alloc(u8, cred.rp.id.len + 8);
+                                defer gpa.free(rps);
+                                @memcpy(rps[0..8], "https://");
+                                @memcpy(rps[8..], cred.rp.id);
+                                try dvui.openURL(rps);
+                            } else {
+                                try dvui.openURL(cred.rp.id);
+                            }
+                        }
+                    }
+
+                    //try dvui.label(@src(), "Relying Party: {s}", .{cred.rp.id}, .{ .gravity_y = 0.5 });
+                    try dvui.label(@src(), "User: {s}", .{if (cred.user.displayName) |dn| blk: {
+                        break :blk dn;
+                    } else if (cred.user.name) |n| blk: {
+                        break :blk n;
+                    } else blk: {
+                        break :blk "?";
+                    }}, .{ .gravity_y = 0.5 });
+                    try dvui.label(@src(), "Signatures Created: {d}", .{cred.sign_count}, .{ .gravity_y = 0.5 });
+                    if (try dvui.button(@src(), "Delete", .{
+                        .color_style = .err,
+                        .corner_radius = dvui.Rect.all(0),
+                        .gravity_x = 1.0,
+                        .gravity_y = 1.0,
+                    })) {}
+                }
+            }
+        }
+    }
 }
 
 fn login_frame() !void {
@@ -283,7 +395,6 @@ fn login_frame() !void {
 
             if (try dvui.buttonIcon(
                 @src(),
-                12,
                 "toggle",
                 if (state.login.pw_obf) dvui.entypo.eye_with_line else dvui.entypo.eye,
                 .{
@@ -430,7 +541,7 @@ pub fn my_up(
     }) catch return .Denied;
 
     while (std.time.milliTimestamp() - begin < 60_000) {
-        win.refresh();
+        //win.refresh();
         if (dialogsFollowup.confirm != null) {
             defer dialogsFollowup.confirm = null;
             if (dialogsFollowup.confirm.?) {
