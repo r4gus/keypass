@@ -35,3 +35,45 @@ pub fn openFile(path: []const u8) !std.fs.File {
         break :blk file;
     };
 }
+
+pub const Config = struct {
+    pub const Theme = enum {
+        dark,
+    };
+
+    db_path: []const u8 = "~/.keypass/db.trs",
+    theme: Theme = .dark,
+
+    pub fn load(a: std.mem.Allocator) !Config {
+        var file = openFile("~/.keypass/config.json") catch {
+            return error.NotFound;
+        };
+        defer file.close();
+
+        var mem = try file.readToEndAlloc(a, 50_000_000);
+        defer a.free(mem);
+
+        return try std.json.parseFromSliceLeaky(@This(), a, mem, .{ .allocate = .alloc_always });
+    }
+
+    pub fn create(a: std.mem.Allocator) !void {
+        const home = std.os.getenv("HOME");
+        if (home == null) return error.NoHome;
+        var home_dir = try std.fs.openDirAbsolute(home.?, .{});
+        defer home_dir.close();
+        var file = try home_dir.createFile(".keypass/config.json", .{ .exclusive = true });
+        defer file.close();
+
+        var str = std.ArrayList(u8).init(a);
+        defer str.deinit();
+
+        var x = @This(){};
+        try std.json.stringify(x, .{}, str.writer());
+
+        try file.writeAll(str.items);
+    }
+
+    pub fn deinit(self: *const @This(), a: std.mem.Allocator) void {
+        a.free(self.db_path);
+    }
+};

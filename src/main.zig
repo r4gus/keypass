@@ -124,8 +124,22 @@ pub fn main() !void {
     // App Init
     // //////////////////////////////////////
 
+    var config_file = db.Config.load(gpa) catch blk: {
+        std.log.info("No configuration file found in `~/.keypass`", .{});
+        try db.Config.create(gpa);
+        var f = try db.Config.load(gpa);
+        std.log.info("Configuration file created", .{});
+        break :blk f;
+    };
+    defer config_file.deinit(gpa);
+
     defer app_state.deinit();
     try app_state.pushState(AppState.State{ .login = .{} });
+    @memset(app_state.states.items[app_state.states.items.len - 1].login.path[0..], 0);
+    @memcpy(
+        app_state.states.items[app_state.states.items.len - 1].login.path[0..config_file.db_path.len],
+        config_file.db_path,
+    );
 
     // //////////////////////////////////////
     // Main
@@ -161,6 +175,7 @@ pub fn main() !void {
 }
 
 var show_dialog: bool = false;
+var show_create_dialog: bool = false;
 fn dvui_frame() !void {
     {
         var m = try dvui.menu(@src(), .horizontal, .{ .background = true, .expand = .horizontal });
@@ -183,12 +198,8 @@ fn dvui_frame() !void {
                 .corner_radius = dvui.Rect.all(0),
             }) != null) {
                 dvui.menuGet().?.close();
-            }
-
-            if (try dvui.menuItemLabel(@src(), "Close Menu", .{}, .{
-                .corner_radius = dvui.Rect.all(0),
-            }) != null) {
-                dvui.menuGet().?.close();
+                show_create_dialog = true;
+                //var p = std.ChildProcess.init(&.{ "zenity", "--file-selection", "--directory" }, gpa);
             }
         }
 
@@ -226,6 +237,18 @@ fn dvui_frame() !void {
     if (show_dialog) {
         try dialogInfo();
     }
+
+    if (show_create_dialog) {
+        try dialogDbCreate();
+    }
+}
+
+pub fn dialogDbCreate() !void {
+    var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &show_create_dialog }, .{});
+    defer dialog_win.deinit();
+    try dvui.windowHeader("New Database", "", &show_create_dialog);
+
+    try dvui.label(@src(), "comming soon...", .{}, .{});
 }
 
 pub fn dialogInfo() !void {
