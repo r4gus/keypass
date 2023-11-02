@@ -514,6 +514,11 @@ pub fn my_uv(
     _ = info;
     _ = user;
     _ = rp;
+    // The authenticator backend is only started if a correct password has been provided
+    // so we return Accepted. As this state may last for multiple minutes it's important
+    // that we ask for user presence, i.e. we DONT return AcceptedWithUp!
+    //
+    // TODO: "logout after being inactive for m minutes"
     return UvResult.Accepted;
 }
 
