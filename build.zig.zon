@@ -12,7 +12,7 @@
         },
         .dvui = .{
             .url = "https://github.com/david-vanderson/dvui/archive/master.tar.gz",
-            .hash = "1220c1bb26e83d900a93ba9b8f2cc4e73d4033bfeda1e25b89a54496374bc5d12d6b",
+            .hash = "12204994ce08e99bea33ab714a59c8d5e80c25fd7e477dc55297afd8dc82020ee2db",
         },
     },
 }
