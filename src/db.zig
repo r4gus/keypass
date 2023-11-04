@@ -41,7 +41,7 @@ pub const Config = struct {
         dark,
     };
 
-    db_path: []const u8 = "~/.keypass/db.trs",
+    db_path: []const u8 = "",
     theme: Theme = .dark,
 
     pub fn load(a: std.mem.Allocator) !Config {
