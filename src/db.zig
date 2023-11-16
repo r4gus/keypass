@@ -56,6 +56,16 @@ pub const Config = struct {
         return try std.json.parseFromSliceLeaky(@This(), a, mem, .{ .allocate = .alloc_always });
     }
 
+    pub fn save(self: *const @This()) !void {
+        const home = std.os.getenv("HOME");
+        if (home == null) return error.NoHome;
+        var home_dir = try std.fs.openDirAbsolute(home.?, .{});
+        defer home_dir.close();
+        var file = try home_dir.createFile(".keypass/config.json", .{ .exclusive = false });
+        defer file.close();
+        try std.json.stringify(self, .{}, file.writer());
+    }
+
     pub fn create(a: std.mem.Allocator) !void {
         const home = std.os.getenv("HOME");
         if (home == null) return error.NoHome;

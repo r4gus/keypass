@@ -131,7 +131,6 @@ pub fn main() !void {
         std.log.info("Configuration file created", .{});
         break :blk f;
     };
-    defer config_file.deinit(gpa);
 
     defer app_state.deinit();
     try app_state.pushState(AppState.State{ .login = .{} });
@@ -141,6 +140,7 @@ pub fn main() !void {
         config_file.db_path,
     );
 
+    config_file.deinit(gpa);
     // //////////////////////////////////////
     // Main
     // //////////////////////////////////////
@@ -199,7 +199,6 @@ fn dvui_frame() !void {
             }) != null) {
                 dvui.menuGet().?.close();
                 show_create_dialog = true;
-                //var p = std.ChildProcess.init(&.{ "zenity", "--file-selection", "--directory" }, gpa);
             }
         }
 
@@ -243,6 +242,13 @@ fn dvui_frame() !void {
     }
 }
 
+fn checkPw(pw1: []const u8, pw2: []const u8) ?[]const u8 {
+    if (!std.mem.eql(u8, pw1[0..], pw2[0..])) return "passwords don't match";
+    if (pw1.len < 8) return "password must be at least 8 characters long";
+    return null;
+}
+
+/// Dialog for creating a new database
 pub fn dialogDbCreate() !void {
     const red = dvui.Color{ .r = 255, .g = 0, .b = 0 };
 
@@ -252,10 +258,15 @@ pub fn dialogDbCreate() !void {
         var pw1: [128]u8 = .{0} ** 128;
         var pw2: [128]u8 = .{0} ** 128;
         var fname: [256]u8 = .{0} ** 256;
+        var fname_empty: ?dvui.Color = null;
+        var fpath: [256]u8 = .{0} ** 256;
+        var fpath_empty: ?dvui.Color = null;
+        var fpath_err: ?[]const u8 = null;
         var pw_obf: bool = true;
     };
 
-    const pw_dont_match = if (!std.mem.eql(u8, S.pw1[0..], S.pw2[0..])) red else null;
+    const pw_err_msg = checkPw(S.pw1[0..slen(&S.pw1)], S.pw2[0..slen(&S.pw2)]);
+    const pw_dont_match = if (pw_err_msg != null) red else null;
 
     var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &show_create_dialog }, .{
         .corner_radius = dvui.Rect.all(0),
@@ -374,10 +385,57 @@ pub fn dialogDbCreate() !void {
             }, .{
                 .expand = .horizontal,
                 .corner_radius = dvui.Rect.all(0),
+                .color_border = S.fname_empty,
             });
             fname.deinit();
+        }
 
-            // TODO: add selection window
+        {
+            var hbox2 = try dvui.box(@src(), .horizontal, .{ .expand = .horizontal });
+            defer hbox2.deinit();
+
+            try dvui.label(@src(), "File Path:", .{}, .{ .gravity_y = 0.5 });
+
+            var fpath = try dvui.textEntry(@src(), .{
+                .text = &S.fpath,
+                .password_char = null,
+            }, .{
+                .expand = .horizontal,
+                .corner_radius = dvui.Rect.all(0),
+                .color_border = S.fpath_empty,
+            });
+            fpath.deinit();
+
+            if (try dvui.buttonIcon(
+                @src(),
+                "fileDialog",
+                dvui.entypo.browser,
+                .{
+                    .gravity_y = 0.5,
+                    .corner_radius = dvui.Rect.all(0),
+                },
+            )) {
+                //var p = std.ChildProcess.init(&.{ "zenity", "--file-selection", "--directory" }, gpa);
+                var r: ?std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
+                    .allocator = gpa,
+                    .argv = &.{ "zenity", "--file-selection", "--directory" },
+                }) catch blk: {
+                    break :blk null;
+                };
+
+                if (r) |_r| {
+                    if (_r.stdout.len > 0) {
+                        var l = if (_r.stdout.len > S.fpath[0..].len) S.fpath[0..].len else _r.stdout.len;
+                        // Remove whitespace
+                        while (l > 0 and std.ascii.isWhitespace(_r.stdout[l - 1])) : (l -= 1) {}
+                        @memcpy(S.fpath[0..l], _r.stdout[0..l]);
+                    }
+
+                    std.log.err("{s}\n{s}", .{ _r.stdout, _r.stderr });
+                    gpa.free(_r.stdout);
+                    gpa.free(_r.stderr);
+                }
+            }
         }
     }
 
@@ -393,7 +451,7 @@ pub fn dialogDbCreate() !void {
             .corner_radius = dvui.Rect.all(0),
             .gravity_x = 1.0,
             .gravity_y = 1.0,
-        })) {
+        })) blk: {
             var valid = true;
 
             if (slen(S.db_name[0..]) == 0) {
@@ -402,6 +460,73 @@ pub fn dialogDbCreate() !void {
             } else {
                 S.db_name_empty = null;
             }
+
+            if (pw_dont_match != null) {
+                valid = false;
+            }
+
+            if (slen(&S.fname) == 0) {
+                S.fname_empty = red;
+                valid = false;
+            } else {
+                S.fname_empty = null;
+            }
+
+            if (slen(&S.fpath) == 0) {
+                S.fpath_empty = red;
+                valid = false;
+            } else {
+                S.fpath_empty = null;
+            }
+
+            if (!valid) {
+                break :blk;
+            }
+
+            var absolute_path = try std.fmt.allocPrint(gpa, "{s}/{s}", .{
+                S.fpath[0..slen(&S.fpath)],
+                S.fname[0..slen(&S.fname)],
+            });
+            defer gpa.free(absolute_path);
+
+            var file = std.fs.createFileAbsolute(absolute_path, .{ .exclusive = true }) catch |e| {
+                if (e == error.PathAlreadyExists) {
+                    S.fpath_err = "the file does already exist";
+                    break :blk;
+                } else if (e == error.AccessDenied) {
+                    S.fpath_err = "file access denied";
+                    break :blk;
+                } else {
+                    S.fpath_err = "unexpected error while opening file";
+                    break :blk;
+                }
+            };
+            defer file.close();
+            S.fpath_err = null;
+
+            var store = try tresor.Tresor.new(
+                1,
+                0,
+                .ChaCha20,
+                .None,
+                .Argon2id,
+                "PassKey",
+                S.db_name[0..slen(&S.db_name)],
+                gpa,
+                std.crypto.random,
+                std.time.milliTimestamp,
+            );
+            defer store.deinit();
+            try store.seal(file.writer(), S.pw1[0..slen(&S.pw1)]);
+
+            // Update the path of the database file
+            var config_file = try db.Config.load(gpa);
+            gpa.free(config_file.db_path);
+            config_file.db_path = absolute_path;
+            try config_file.save();
+
+            show_create_dialog = false;
+            // TODO: deinit all buffers
         }
 
         if (try dvui.button(@src(), "Cancel", .{
@@ -412,7 +537,7 @@ pub fn dialogDbCreate() !void {
     }
 
     if (pw_dont_match != null) {
-        try dvui.label(@src(), "passwords don't match", .{}, .{
+        try dvui.label(@src(), "{s}", .{pw_err_msg.?}, .{
             .color_text = pw_dont_match,
             .gravity_x = 0.5,
             .gravity_y = 0.5,
@@ -422,6 +547,14 @@ pub fn dialogDbCreate() !void {
     if (S.db_name_empty != null) {
         try dvui.label(@src(), "database name must not be empty", .{}, .{
             .color_text = S.db_name_empty,
+            .gravity_x = 0.5,
+            .gravity_y = 0.5,
+        });
+    }
+
+    if (S.fpath_err) |e| {
+        try dvui.label(@src(), "{s}", .{e}, .{
+            .color_text = red,
             .gravity_x = 0.5,
             .gravity_y = 0.5,
         });
@@ -496,67 +629,74 @@ pub fn dialogInfo() !void {
 
 fn main_frame() !void {
     if (DB.database.data.entries) |*entries| {
-        for (entries.*, 0..) |*entry, i| {
-            if (entry.getField("Data", std.time.milliTimestamp())) |data| {
-                var buffer: [1024]u8 = .{0} ** 1024;
-                const slice = try std.fmt.hexToBytes(&buffer, data);
+        if (entries.len > 1) {
+            for (entries.*, 0..) |*entry, i| {
+                if (entry.getField("Data", std.time.milliTimestamp())) |data| {
+                    var buffer: [1024]u8 = .{0} ** 1024;
+                    const slice = try std.fmt.hexToBytes(&buffer, data);
 
-                const cred = cbor.parse(
-                    keylib.ctap.authenticator.Credential,
-                    try cbor.DataItem.new(slice),
-                    .{ .allocator = gpa },
-                ) catch {
-                    continue;
-                };
-                defer cred.deinit(gpa);
+                    const cred = cbor.parse(
+                        keylib.ctap.authenticator.Credential,
+                        try cbor.DataItem.new(slice),
+                        .{ .allocator = gpa },
+                    ) catch {
+                        continue;
+                    };
+                    defer cred.deinit(gpa);
 
-                var box = try dvui.box(@src(), .vertical, .{
-                    .margin = dvui.Rect{ .x = 8.0, .y = 8.0, .w = 8.0 },
-                    .padding = dvui.Rect.all(8),
-                    .background = true,
-                    .expand = .horizontal,
-                    .id_extra = i,
-                });
-                defer box.deinit();
-
-                {
-                    //var rp_box = try dvui.box(@src(), .vertical, .{});
-                    //defer rp_box.deinit();
+                    var box = try dvui.box(@src(), .vertical, .{
+                        .margin = dvui.Rect{ .x = 8.0, .y = 8.0, .w = 8.0 },
+                        .padding = dvui.Rect.all(8),
+                        .background = true,
+                        .expand = .horizontal,
+                        .id_extra = i,
+                    });
+                    defer box.deinit();
 
                     {
-                        var hbox = try dvui.box(@src(), .horizontal, .{});
-                        defer hbox.deinit();
+                        //var rp_box = try dvui.box(@src(), .vertical, .{});
+                        //defer rp_box.deinit();
 
-                        try dvui.label(@src(), "Relying Party:", .{}, .{});
-                        if (try dvui.labelClick(@src(), "{s}", .{cred.rp.id}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
-                            if (cred.rp.id.len < 5 or !std.mem.eql(u8, "https", cred.rp.id[0..5])) {
-                                var rps = try gpa.alloc(u8, cred.rp.id.len + 8);
-                                defer gpa.free(rps);
-                                @memcpy(rps[0..8], "https://");
-                                @memcpy(rps[8..], cred.rp.id);
-                                try dvui.openURL(rps);
-                            } else {
-                                try dvui.openURL(cred.rp.id);
+                        {
+                            var hbox = try dvui.box(@src(), .horizontal, .{});
+                            defer hbox.deinit();
+
+                            try dvui.label(@src(), "Relying Party:", .{}, .{});
+                            if (try dvui.labelClick(@src(), "{s}", .{cred.rp.id}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+                                if (cred.rp.id.len < 5 or !std.mem.eql(u8, "https", cred.rp.id[0..5])) {
+                                    var rps = try gpa.alloc(u8, cred.rp.id.len + 8);
+                                    defer gpa.free(rps);
+                                    @memcpy(rps[0..8], "https://");
+                                    @memcpy(rps[8..], cred.rp.id);
+                                    try dvui.openURL(rps);
+                                } else {
+                                    try dvui.openURL(cred.rp.id);
+                                }
                             }
                         }
-                    }
 
-                    //try dvui.label(@src(), "Relying Party: {s}", .{cred.rp.id}, .{ .gravity_y = 0.5 });
-                    try dvui.label(@src(), "User: {s}", .{if (cred.user.displayName) |dn| blk: {
-                        break :blk dn;
-                    } else if (cred.user.name) |n| blk: {
-                        break :blk n;
-                    } else blk: {
-                        break :blk "?";
-                    }}, .{ .gravity_y = 0.5 });
-                    try dvui.label(@src(), "Signatures Created: {d}", .{cred.sign_count}, .{ .gravity_y = 0.5 });
-                    if (try dvui.button(@src(), "Delete", .{
-                        .color_style = .err,
-                        .corner_radius = dvui.Rect.all(0),
-                        .gravity_x = 1.0,
-                        .gravity_y = 1.0,
-                    })) {}
+                        //try dvui.label(@src(), "Relying Party: {s}", .{cred.rp.id}, .{ .gravity_y = 0.5 });
+                        try dvui.label(@src(), "User: {s}", .{if (cred.user.displayName) |dn| blk: {
+                            break :blk dn;
+                        } else if (cred.user.name) |n| blk: {
+                            break :blk n;
+                        } else blk: {
+                            break :blk "?";
+                        }}, .{ .gravity_y = 0.5 });
+                        try dvui.label(@src(), "Signatures Created: {d}", .{cred.sign_count}, .{ .gravity_y = 0.5 });
+                        if (try dvui.button(@src(), "Delete", .{
+                            .color_style = .err,
+                            .corner_radius = dvui.Rect.all(0),
+                            .gravity_x = 1.0,
+                            .gravity_y = 1.0,
+                        })) {}
+                    }
                 }
+            }
+        } else { // entries.len == 0
+            try dvui.label(@src(), "No Passkeys available, go and create one!", .{}, .{ .font_style = .title_3, .gravity_x = 0.5, .gravity_y = 0.5 });
+            if (try dvui.labelClick(@src(), "https://passkey.org/", .{}, .{ .font_style = .title_4, .gravity_x = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+                try dvui.openURL("https://passkey.org/");
             }
         }
     }
@@ -921,13 +1061,18 @@ pub fn my_write(
             std.log.err("{s}", .{path});
 
             std.fs.copyFileAbsolute("/tmp/db.trs", path, .{}) catch {
-                std.log.err("unable to overwrite file", .{});
+                std.log.err("unable to overwrite file `{s}`", .{DB.f});
                 return Error.Other;
             };
         } else {
             std.log.err("no HOME path", .{});
             return Error.Other;
         }
+    } else if (DB.f[0] == '/') {
+        std.fs.copyFileAbsolute("/tmp/db.trs", DB.f, .{}) catch {
+            std.log.err("unable to overwrite file `{s}`", .{DB.f});
+            return Error.Other;
+        };
     } else {
         std.log.err("support for file prefix not implemented yet!!!", .{});
         return Error.Other;
