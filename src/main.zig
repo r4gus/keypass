@@ -763,6 +763,43 @@ fn login_frame() !void {
                 .corner_radius = dvui.Rect.all(0),
             });
             te.deinit();
+
+            if (try dvui.buttonIcon(
+                @src(),
+                "fileDialog",
+                dvui.entypo.browser,
+                .{
+                    .gravity_y = 0.5,
+                    .corner_radius = dvui.Rect.all(0),
+                },
+            )) {
+                //var p = std.ChildProcess.init(&.{ "zenity", "--file-selection", "--directory" }, gpa);
+                var r: ?std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
+                    .allocator = gpa,
+                    .argv = &.{ "zenity", "--file-selection" },
+                }) catch blk: {
+                    break :blk null;
+                };
+
+                if (r) |_r| {
+                    if (_r.stdout.len > 0) {
+                        var l = if (_r.stdout.len > state.login.path[0..].len) state.login.path[0..].len else _r.stdout.len;
+                        // Remove whitespace
+                        while (l > 0 and std.ascii.isWhitespace(_r.stdout[l - 1])) : (l -= 1) {}
+                        @memset(state.login.path[0..], 0);
+                        @memcpy(state.login.path[0..l], _r.stdout[0..l]);
+
+                        // Update the path of the database file
+                        var config_file = try db.Config.load(gpa);
+                        gpa.free(config_file.db_path);
+                        config_file.db_path = state.login.path[0..l];
+                        try config_file.save();
+                    }
+
+                    gpa.free(_r.stdout);
+                    gpa.free(_r.stderr);
+                }
+            }
         }
         {
             if (try dvui.button(@src(), "Unlock", .{
