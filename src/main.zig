@@ -16,8 +16,8 @@ const vsync = true;
 const DB = struct {
     var database: tresor.Tresor = undefined;
     var lock: std.Thread.Mutex = .{};
-    var pw: []const u8 = undefined;
-    var f: []const u8 = undefined;
+    var pw: []u8 = undefined;
+    var f: []u8 = undefined;
 };
 
 const AppState = struct {
@@ -34,6 +34,7 @@ const AppState = struct {
         },
         main: struct {
             t: std.Thread,
+            stop: bool = false,
         },
     };
 
@@ -172,6 +173,8 @@ pub fn main() !void {
         const wait_event_micros = win.waitTime(end_micros, null);
         backend.waitEventTimeout(wait_event_micros);
     }
+
+    // TODO: properly clean up DB etc.
 }
 
 var show_dialog: bool = false;
@@ -199,6 +202,30 @@ fn dvui_frame() !void {
             }) != null) {
                 dvui.menuGet().?.close();
                 show_create_dialog = true;
+            }
+
+            switch (app_state.states.items[app_state.states.items.len - 1]) {
+                .login => {},
+                .main => {
+                    if (try dvui.menuItemLabel(@src(), "Lock Database", .{}, .{
+                        .corner_radius = dvui.Rect.all(0),
+                    }) != null) {
+                        var data = &app_state.states.items[app_state.states.items.len - 1].main;
+                        data.stop = true;
+                        data.t.join();
+                        data = undefined;
+                        _ = app_state.states.pop();
+
+                        DB.database.deinit();
+                        DB.database = undefined;
+                        @memset(DB.pw, 0);
+                        gpa.free(DB.pw);
+                        DB.pw = undefined;
+                        @memset(DB.f, 0);
+                        gpa.free(DB.f);
+                        DB.f = undefined;
+                    }
+                },
             }
         }
 
@@ -836,6 +863,7 @@ fn login_frame() !void {
                 DB.pw = try gpa.dupe(u8, state.login.pw[0..slen(&state.login.pw)]);
                 DB.f = try gpa.dupe(u8, state.login.path[0..strlen(&state.login.path)]);
                 DB.database = database;
+                @memset(state.login.pw[0..], 0);
             }
         }
     }
@@ -929,7 +957,11 @@ pub fn my_up(
     }) catch return .Denied;
 
     while (std.time.milliTimestamp() - begin < 60_000) {
-        //win.refresh();
+        // If the authenticator thread gets a stop signal, return timeout
+        if (app_state.states.items[app_state.states.items.len - 1].main.stop) {
+            return .Timeout;
+        }
+
         if (dialogsFollowup.confirm != null) {
             defer dialogsFollowup.confirm = null;
             if (dialogsFollowup.confirm.?) {
@@ -1159,5 +1191,10 @@ fn auth_fn() !void {
             }
         }
         std.time.sleep(10000000);
+
+        // We send all data back before we end the thread
+        if (app_state.states.items[app_state.states.items.len - 1].main.stop) {
+            return;
+        }
     }
 }
