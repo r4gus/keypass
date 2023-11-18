@@ -11,9 +11,17 @@ A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://gi
 * Store your Passkeys (just a private key + related data) in a local, encrypted database
 * Manage your Passkeys directly in the App (WIP)
 
-## Installing the project
+## Install
 
-The current project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
+This project is installed by running the following command in your terminal.
+
+```
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install.sh)"
+```
+
+> The current project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
+
+## Manual installation
 
 * First you need a [Zig 0.11.0 compiler](https://ziglang.org/download/).
 * Also, the project uses [zenity](https://wiki.gnome.org/Projects/Zenity) as file browser. You might need to install it if your distro doesn't come with GTK natively. If zenity is not available, you have to enter file paths manually.
