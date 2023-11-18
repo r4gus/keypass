@@ -55,11 +55,11 @@ Please read the QA of the [keylib](https://github.com/r4gus/keylib) project.
 
 <table>
   <tr>
-    <td><img src="static/login-page.png" width="200"></td>
-    <td><img src="static/new-database.png" width="200"></td>
+    <td><img src="static/login-page.png" width="400"></td>
+    <td><img src="static/new-database.png" width="400"></td>
   </tr>
   <tr>
-    <td><img src="static/main.png" width="200"></td>
-    <td><img src="static/login.png" width="200"></td>
+    <td><img src="static/main.png" width="400"></td>
+    <td><img src="static/login.png" width="400"></td>
   </tr>
 </table>
