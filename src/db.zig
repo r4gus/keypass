@@ -71,6 +71,7 @@ pub const Config = struct {
         if (home == null) return error.NoHome;
         var home_dir = try std.fs.openDirAbsolute(home.?, .{});
         defer home_dir.close();
+        home_dir.makeDir(".keypass") catch {};
         var file = try home_dir.createFile(".keypass/config.json", .{ .exclusive = true });
         defer file.close();
 
