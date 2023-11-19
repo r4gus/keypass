@@ -93,3 +93,10 @@ Please read the QA of the [keylib](https://github.com/r4gus/keylib) project.
     <td><img src="static/login.png" width="400"></td>
   </tr>
 </table>
+
+## Dependencies
+
+* [keylib](https://github.com/r4gus/keylib)
+* [zbor](https://github.com/r4gus/zbor)
+* [tresor](https://github.com/r4gus/tresor)
+* [dvui](https://github.com/david-vanderson/dvui)
