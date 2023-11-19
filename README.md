@@ -21,7 +21,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/
 
 > The current project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
 
-## Manual installation
+### Manual installation
 
 * First you need a [Zig 0.11.0 compiler](https://ziglang.org/download/).
 * Also, the project uses [zenity](https://wiki.gnome.org/Projects/Zenity) as file browser. You might need to install it if your distro doesn't come with GTK natively. If zenity is not available, you have to enter file paths manually.
@@ -30,6 +30,16 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/
 * After successful compilation you can find the binary in `zig-out/bin/`
 * Execute the script `script/postints.sh` using bash. This will create a new group `fido` and add the current user to the group. The script also enables the `uhid` module and adds a rule that allows users of the group `fido` to access `/dev/uhid` without root privileges.
 * Finally, restart you Pc.
+
+### File synchronization
+
+You can synchronize your database files using a service like [Syncthing](https://docs.syncthing.net/intro/getting-started.html) between your devices. This allows you to use the same Passkeys to login to your accounts on multiple devices.
+
+#### Syncthing
+
+Please see the [Getting Started guide](https://docs.syncthing.net/intro/getting-started.html) on how to setup Syncthing on your device. Make sure you also setup Syncthing to [startup automatically](https://docs.syncthing.net/users/autostart.html#linux), to prevent a situation where your databases are out of sync.
+
+> NOTE: For now, please make sure that you don't have the same database open on multiple devices simultaneously.
 
 ## Contributing
 
