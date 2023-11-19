@@ -47,9 +47,7 @@ echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.r
 getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
 
 # Add uhid to the list of modules to load during boot
-if ! grep -q uhid /etc/modules; then
-    echo "uhid" >> /etc/modules
-fi
+echo "uhid" > /etc/modules-load.d/fido.conf 
 
 echo "Installed successfully. Please reboot..."
 
