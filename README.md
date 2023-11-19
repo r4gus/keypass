@@ -1,4 +1,4 @@
-# keypass
+# KeyPassPro
 
 A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://github.com/r4gus/keylib).
 
