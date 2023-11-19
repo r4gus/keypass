@@ -110,7 +110,7 @@ pub fn main() !void {
         .width = 680,
         .height = 400,
         .vsync = vsync,
-        .title = "KeyPassPro",
+        .title = "PassKeeZ",
     });
     defer backend.deinit();
 
@@ -594,7 +594,7 @@ pub fn dialogInfo() !void {
     });
     defer dialog_win.deinit();
 
-    try dvui.windowHeader("About KeyPassPro", "", &show_dialog);
+    try dvui.windowHeader("About PassKeeZ", "", &show_dialog);
     try dvui.label(@src(), "About", .{}, .{ .font_style = .title_4 });
 
     {
@@ -607,7 +607,7 @@ pub fn dialogInfo() !void {
         }
     }
 
-    try dvui.label(@src(), "KeyPassPro and keylib are distributed under the MIT license.", .{}, .{});
+    try dvui.label(@src(), "PassKeeZ and keylib are distributed under the MIT license.", .{}, .{});
     try dvui.label(@src(), "Project Maintainers: David Sugar (r4gus)", .{}, .{});
     try dvui.label(@src(), "Special thanks to David Vanderson and\nthe whole Zig community.", .{}, .{});
     _ = dvui.spacer(@src(), .{}, .{ .expand = .vertical });

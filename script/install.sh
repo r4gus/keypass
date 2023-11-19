@@ -30,11 +30,11 @@ fi
 git clone "https://github.com/r4gus/keypass"
 cd keypass
 ../$zig build -Doptimize=ReleaseSmall
-cp zig-out/bin/keypass /usr/local/bin
+cp zig-out/bin/passkeez /usr/local/bin
 
 cd ~/
 
-echo "keypass installed into /usr/local/bin/"
+echo "PassKeeZ installed into /usr/local/bin/"
 
 ##############################################
 #               Postinst                     #
