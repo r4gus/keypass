@@ -8,7 +8,7 @@
         },
         .tresor = .{
             .url = "https://github.com/r4gus/tresor/archive/master.tar.gz",
-            .hash = "122023e07245a78392d552867d22ba7c9371b2a307bb7c630fef57ea83a6d23ae323",
+            .hash = "1220486ab0c0ccc79b89457a57cb1dbdb879de039305873317f589a8f77a003b67be",
         },
         .dvui = .{
             .url = "https://github.com/david-vanderson/dvui/archive/b0d4854f3f3d25872163d4e645b883e0328b088d.tar.gz",

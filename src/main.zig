@@ -1085,7 +1085,8 @@ pub fn my_write(
         };
 
         e.addField(
-            .{ .key = "Url", .value = rp[0..strlen(rp)] },
+            "Url",
+            rp[0..strlen(rp)],
             std.time.milliTimestamp(),
         ) catch {
             std.log.err("unable to add Url field", .{});
@@ -1094,7 +1095,8 @@ pub fn my_write(
         };
 
         e.addField(
-            .{ .key = "Data", .value = data[0..strlen(data)] },
+            "Data",
+            data[0..strlen(data)],
             std.time.milliTimestamp(),
         ) catch {
             std.log.err("unable to add Data field", .{});
