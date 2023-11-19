@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{
-        .name = "keypass",
+        .name = "keypasspro",
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
