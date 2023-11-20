@@ -19,10 +19,7 @@ Path=/usr/local/bin/passkeez
 Exec=passkeez
 
 # The name of the icon that will be used to display this entry
-Icon=passkeez.png
+Icon=passkeez
 
 # Describes whether this application needs to be run in a terminal or not
 Terminal=false
-
-# Describes the categories in which this entry should be shown
-Categories=Authentication;FIDO2;Passkey;WebAuthn;CTAP2;Zig;
