@@ -30,11 +30,15 @@ fi
 git clone "https://github.com/r4gus/keypass"
 cd keypass
 ../$zig build -Doptimize=ReleaseSmall
-cp zig-out/bin/passkeez /usr/local/bin
+rm -rf /usr/local/bin/passkeez
+mkdir /usr/local/bin/passkeez
+cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
+cp linux/passkeez.png /usr/local/bin/passkeez/passkeez.png
+desktop-file-install --dir=$HOME/.local/share/applications linux/passkeez.desktop
 
 cd ~/
 
-echo "PassKeeZ installed into /usr/local/bin/"
+echo "PassKeeZ installed into /usr/local/bin/passkeez/"
 
 ##############################################
 #               Postinst                     #
