@@ -34,6 +34,8 @@ rm -rf /usr/local/bin/passkeez
 mkdir /usr/local/bin/passkeez
 cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
 cp linux/passkeez.png /usr/local/bin/passkeez/passkeez.png
+
+rm "$HOME/.local/share/applications/passkeez.desktop"
 desktop-file-install --dir="$HOME/.local/share/applications" linux/passkeez.desktop
 update-desktop-database "$HOME/.local/share/applications"
 
