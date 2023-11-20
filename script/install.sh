@@ -35,9 +35,11 @@ mkdir /usr/local/bin/passkeez
 cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
 cp linux/passkeez.png /usr/local/bin/passkeez/passkeez.png
 
-echo "Removing old .desktop file..."
-rm "/home/$SUDO_USER/.local/share/applications/passkeez.desktop"
-update-desktop-database "/home/$SUDO_USER/.local/share/applications"
+if [ -e "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
+    echo "Removing old .desktop file..."
+    rm "/home/$SUDO_USER/.local/share/applications/passkeez.desktop"
+    update-desktop-database "/home/$SUDO_USER/.local/share/applications"
+fi
 echo "Installing .desktop file..."
 desktop-file-install --dir="/home/$SUDO_USER/.local/share/applications" linux/passkeez.desktop
 update-desktop-database "/home/$SUDO_USER/.local/share/applications"
