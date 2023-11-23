@@ -7,18 +7,12 @@ const dvui = @import("dvui");
 const Backend = @import("SDLBackend");
 const db = @import("db.zig");
 const style = @import("style.zig");
+const application_state = @import("state.zig");
 
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa = gpa_instance.allocator();
 
 const vsync = true;
-
-const DB = struct {
-    var database: tresor.Tresor = undefined;
-    var lock: std.Thread.Mutex = .{};
-    var pw: []u8 = undefined;
-    var f: []u8 = undefined;
-};
 
 const AppState = struct {
     pub const StateTag = enum {
@@ -174,6 +168,25 @@ pub fn main() !void {
         backend.waitEventTimeout(wait_event_micros);
     }
 
+    switch (app_state.states.items[app_state.states.items.len - 1]) {
+        .login => {},
+        .main => {
+            var data = &app_state.states.items[app_state.states.items.len - 1].main;
+            data.stop = true;
+            data.t.join();
+            data = undefined;
+            _ = app_state.states.pop();
+
+            application_state.database.deinit();
+            @memset(application_state.pw, 0);
+            gpa.free(application_state.pw);
+            application_state.pw = undefined;
+            @memset(application_state.f, 0);
+            gpa.free(application_state.f);
+            application_state.f = undefined;
+        },
+    }
+
     // TODO: properly clean up DB etc.
 }
 
@@ -216,14 +229,13 @@ fn dvui_frame() !void {
                         data = undefined;
                         _ = app_state.states.pop();
 
-                        DB.database.deinit();
-                        DB.database = undefined;
-                        @memset(DB.pw, 0);
-                        gpa.free(DB.pw);
-                        DB.pw = undefined;
-                        @memset(DB.f, 0);
-                        gpa.free(DB.f);
-                        DB.f = undefined;
+                        application_state.database.deinit();
+                        @memset(application_state.pw, 0);
+                        gpa.free(application_state.pw);
+                        application_state.pw = undefined;
+                        @memset(application_state.f, 0);
+                        gpa.free(application_state.f);
+                        application_state.f = undefined;
                     }
                 },
             }
@@ -655,7 +667,7 @@ pub fn dialogInfo() !void {
 }
 
 fn main_frame() !void {
-    if (DB.database.data.entries) |*entries| {
+    if (application_state.database.data.entries) |*entries| {
         if (entries.len > 1) {
             for (entries.*, 0..) |*entry, i| {
                 if (entry.getField("Data", std.time.milliTimestamp())) |data| {
@@ -834,24 +846,11 @@ fn login_frame() !void {
                 .gravity_x = 1.0,
                 .gravity_y = 1.0,
             })) blk: {
-                var database = db.open(
+                application_state.dvui_dbOpen(
                     state.login.path[0..slen(&state.login.path)],
                     state.login.pw[0..slen(&state.login.pw)],
                     gpa,
-                ) catch |e| {
-                    if (e == error.NotFound) {
-                        try dvui.dialog(@src(), .{
-                            .modal = false,
-                            .title = "File not found",
-                            .message = "The given file does not exist",
-                        });
-                    } else {
-                        try dvui.dialog(@src(), .{
-                            .modal = false,
-                            .title = "Unlock error",
-                            .message = "Unable to unlock the database. Did you enter the correct password?",
-                        });
-                    }
+                ) catch {
                     break :blk;
                 };
 
@@ -860,9 +859,8 @@ fn login_frame() !void {
                         .t = try std.Thread.spawn(.{}, auth_fn, .{}),
                     },
                 };
-                DB.pw = try gpa.dupe(u8, state.login.pw[0..slen(&state.login.pw)]);
-                DB.f = try gpa.dupe(u8, state.login.path[0..strlen(&state.login.path)]);
-                DB.database = database;
+                application_state.pw = try gpa.dupe(u8, state.login.pw[0..slen(&state.login.pw)]);
+                application_state.f = try gpa.dupe(u8, state.login.path[0..strlen(&state.login.path)]);
                 @memset(state.login.pw[0..], 0);
             }
         }
@@ -990,11 +988,8 @@ pub fn my_read(
     rp: [*c]const u8,
     out: *[*c][*c]u8,
 ) callconv(.C) Error {
-    DB.lock.lock();
-    defer DB.lock.unlock();
-
     if (id != null) {
-        if (DB.database.getEntry(id[0..strlen(id)])) |*e| {
+        if (application_state.database.getEntry(id[0..strlen(id)])) |*e| {
             if (e.*.getField("Data", std.time.microTimestamp())) |data| {
                 var d = gpa.alloc(u8, data.len + 1) catch {
                     std.log.err("out of memory", .{});
@@ -1027,7 +1022,7 @@ pub fn my_read(
         }
     } else if (rp != null) {
         var arr = std.ArrayList([*c]u8).init(gpa);
-        if (DB.database.getEntries(
+        if (application_state.database.getEntries(
             &.{.{ .key = "Url", .value = rp[0..strlen(rp)] }},
             gpa,
         )) |entries| {
@@ -1070,16 +1065,13 @@ pub fn my_write(
     rp: [*c]const u8,
     data: [*c]const u8,
 ) callconv(.C) Error {
-    DB.lock.lock();
-    defer DB.lock.unlock();
-
-    if (DB.database.getEntry(id[0..strlen(id)])) |*e| {
+    if (application_state.database.getEntry(id[0..strlen(id)])) |*e| {
         e.*.updateField("Data", data[0..strlen(data)], std.time.milliTimestamp()) catch {
             std.log.err("unable to update field", .{});
             return Error.Other;
         };
     } else {
-        var e = DB.database.createEntry(id[0..strlen(id)]) catch {
+        var e = application_state.database.createEntry(id[0..strlen(id)]) catch {
             std.log.err("unable to create new entry", .{});
             return Error.Other;
         };
@@ -1104,7 +1096,7 @@ pub fn my_write(
             return Error.Other;
         };
 
-        DB.database.addEntry(e) catch {
+        application_state.database.addEntry(e) catch {
             std.log.err("unable to add entry to database", .{});
             e.deinit();
             return Error.Other;
@@ -1117,14 +1109,14 @@ pub fn my_write(
     };
     defer f2.close();
 
-    DB.database.seal(f2.writer(), DB.pw) catch {
+    application_state.database.seal(f2.writer(), application_state.pw) catch {
         std.log.err("unable to persist database", .{});
         return Error.Other;
     };
 
-    if (DB.f[0] == '~' and DB.f[1] == '/') {
+    if (application_state.f[0] == '~' and application_state.f[1] == '/') {
         if (std.os.getenv("HOME")) |home| {
-            var path = std.fmt.allocPrint(gpa, "{s}/{s}", .{ home, DB.f[2..] }) catch {
+            var path = std.fmt.allocPrint(gpa, "{s}/{s}", .{ home, application_state.f[2..] }) catch {
                 std.log.err("out of memory", .{});
                 return Error.Other;
             };
@@ -1132,16 +1124,16 @@ pub fn my_write(
             std.log.err("{s}", .{path});
 
             std.fs.copyFileAbsolute("/tmp/db.trs", path, .{}) catch {
-                std.log.err("unable to overwrite file `{s}`", .{DB.f});
+                std.log.err("unable to overwrite file `{s}`", .{application_state.f});
                 return Error.Other;
             };
         } else {
             std.log.err("no HOME path", .{});
             return Error.Other;
         }
-    } else if (DB.f[0] == '/') {
-        std.fs.copyFileAbsolute("/tmp/db.trs", DB.f, .{}) catch {
-            std.log.err("unable to overwrite file `{s}`", .{DB.f});
+    } else if (application_state.f[0] == '/') {
+        std.fs.copyFileAbsolute("/tmp/db.trs", application_state.f, .{}) catch {
+            std.log.err("unable to overwrite file `{s}`", .{application_state.f});
             return Error.Other;
         };
     } else {
@@ -1170,6 +1162,7 @@ const callbacks = keylib.ctap.authenticator.callbacks.Callbacks{
 
 fn auth_fn() !void {
     var auth = keylib.ctap.authenticator.Auth.default(callbacks, gpa);
+    auth.constSignCount = true;
     try auth.init();
 
     var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(gpa);

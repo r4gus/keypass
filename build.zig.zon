@@ -4,7 +4,7 @@
     .dependencies = .{
         .keylib = .{
             .url = "https://github.com/r4gus/keylib/archive/master.tar.gz",
-            .hash = "1220b8ea08adc4405f2e766d1a67640aad05cde8dbc1ce7b9b8ae42880c38ff61c41",
+            .hash = "1220edf3ab60fbcec3f30b102b741d0ad4a80a37649c8b5532b70d81eba838c32fa1",
         },
         .tresor = .{
             .url = "https://github.com/r4gus/tresor/archive/master.tar.gz",
