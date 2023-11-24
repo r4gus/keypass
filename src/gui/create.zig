@@ -92,6 +92,7 @@ pub fn create_db_dialog() !void {
                 @src(),
                 "toggle",
                 if (S.pw_obf) dvui.entypo.eye_with_line else dvui.entypo.eye,
+                .{},
                 .{
                     .gravity_y = 0.5,
                     .corner_radius = dvui.Rect.all(0),
@@ -166,6 +167,7 @@ pub fn create_db_dialog() !void {
                 @src(),
                 "fileDialog",
                 dvui.entypo.browser,
+                .{},
                 .{
                     .gravity_y = 0.5,
                     .corner_radius = dvui.Rect.all(0),
@@ -202,7 +204,7 @@ pub fn create_db_dialog() !void {
         });
         defer hbox.deinit();
 
-        if (try dvui.button(@src(), "Create", .{
+        if (try dvui.button(@src(), "Create", .{}, .{
             .corner_radius = dvui.Rect.all(0),
             .gravity_x = 1.0,
             .gravity_y = 1.0,
@@ -284,7 +286,7 @@ pub fn create_db_dialog() !void {
             // TODO: deinit all buffers
         }
 
-        if (try dvui.button(@src(), "Cancel", .{
+        if (try dvui.button(@src(), "Cancel", .{}, .{
             .corner_radius = dvui.Rect.all(0),
             .gravity_x = 1.0,
             .gravity_y = 1.0,

@@ -10,6 +10,8 @@ const style = @import("style.zig");
 const application_state = @import("state.zig");
 const gui = @import("gui.zig");
 
+const window_icon_png = @embedFile("static/passkeez.png");
+
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
 pub const gpa = gpa_instance.allocator();
 
@@ -34,6 +36,7 @@ pub fn main() !void {
         .title = "PassKeeZ",
     });
     defer backend.deinit();
+    backend.setIconFromFileContent(window_icon_png);
 
     // init dvui Window (maps onto a single OS window)
     win = try dvui.Window.init(@src(), 0, gpa, backend.backend());
@@ -242,7 +245,7 @@ fn main_frame() !void {
                             break :blk "?";
                         }}, .{ .gravity_y = 0.5 });
                         try dvui.label(@src(), "Signatures Created: {d}", .{cred.sign_count}, .{ .gravity_y = 0.5 });
-                        if (try dvui.button(@src(), "Delete", .{
+                        if (try dvui.button(@src(), "Delete", .{}, .{
                             .color_style = .err,
                             .corner_radius = dvui.Rect.all(0),
                             .gravity_x = 1.0,

@@ -36,6 +36,7 @@ pub fn login_frame() !void {
             @src(),
             "toggle",
             if (state.login.pw_obf) dvui.entypo.eye_with_line else dvui.entypo.eye,
+            .{},
             .{
                 .gravity_y = 0.5,
                 .corner_radius = dvui.Rect.all(0),
@@ -65,6 +66,7 @@ pub fn login_frame() !void {
             @src(),
             "fileDialog",
             dvui.entypo.browser,
+            .{},
             .{
                 .gravity_y = 0.5,
                 .corner_radius = dvui.Rect.all(0),
@@ -98,7 +100,7 @@ pub fn login_frame() !void {
         }
     }
     {
-        if (try dvui.button(@src(), "Unlock", .{
+        if (try dvui.button(@src(), "Unlock", .{}, .{
             .corner_radius = dvui.Rect.all(0),
             .gravity_x = 1.0,
             .gravity_y = 1.0,
