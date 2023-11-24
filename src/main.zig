@@ -8,9 +8,10 @@ const Backend = @import("SDLBackend");
 const db = @import("db.zig");
 const style = @import("style.zig");
 const application_state = @import("state.zig");
+const gui = @import("gui.zig");
 
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
-const gpa = gpa_instance.allocator();
+pub const gpa = gpa_instance.allocator();
 
 const vsync = true;
 
@@ -170,7 +171,7 @@ fn dvui_frame() !void {
     defer scroll.deinit();
 
     switch (application_state.app_state.getStateTag()) {
-        .login => try login_frame(),
+        .login => try gui.login_frame(),
         .main => try main_frame(),
     }
 
@@ -643,139 +644,11 @@ fn main_frame() !void {
     }
 }
 
-fn login_frame() !void {
-    var s: ?application_state.AppState.State = null;
-
-    const state = application_state.app_state.getState();
-
-    var box = try dvui.box(@src(), .vertical, .{
-        .margin = dvui.Rect{ .x = 50.0, .y = 50.0, .w = 50.0, .h = 75.0 },
-        .padding = dvui.Rect.all(10),
-        .background = true,
-        .expand = .both,
-        //.border = dvui.Rect.all(3),
-    });
-    defer box.deinit();
-
-    {
-        try dvui.label(@src(), "Enter Password:", .{}, .{ .font_style = .title_4 });
-
-        var hbox = try dvui.box(@src(), .horizontal, .{
-            //.margin = dvui.Rect.all(50),
-            .expand = .horizontal,
-        });
-        defer hbox.deinit();
-
-        var te = try dvui.textEntry(@src(), .{
-            .text = &state.login.pw,
-            .password_char = if (state.login.pw_obf) "*" else null,
-        }, .{
-            .expand = .horizontal,
-            .corner_radius = dvui.Rect.all(0),
-        });
-        te.deinit();
-
-        if (try dvui.buttonIcon(
-            @src(),
-            "toggle",
-            if (state.login.pw_obf) dvui.entypo.eye_with_line else dvui.entypo.eye,
-            .{
-                .gravity_y = 0.5,
-                .corner_radius = dvui.Rect.all(0),
-            },
-        )) {
-            state.login.pw_obf = !state.login.pw_obf;
-        }
-    }
-    {
-        try dvui.label(@src(), "Database File:", .{}, .{ .font_style = .title_4 });
-
-        var hbox = try dvui.box(@src(), .horizontal, .{
-            .expand = .horizontal,
-        });
-        defer hbox.deinit();
-
-        var te = try dvui.textEntry(@src(), .{
-            .text = &state.login.path,
-            .password_char = null,
-        }, .{
-            .expand = .horizontal,
-            .corner_radius = dvui.Rect.all(0),
-        });
-        te.deinit();
-
-        if (try dvui.buttonIcon(
-            @src(),
-            "fileDialog",
-            dvui.entypo.browser,
-            .{
-                .gravity_y = 0.5,
-                .corner_radius = dvui.Rect.all(0),
-            },
-        )) {
-            //var p = std.ChildProcess.init(&.{ "zenity", "--file-selection", "--directory" }, gpa);
-            var r: ?std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
-                .allocator = gpa,
-                .argv = &.{ "zenity", "--file-selection" },
-            }) catch blk: {
-                break :blk null;
-            };
-
-            if (r) |_r| {
-                if (_r.stdout.len > 0) {
-                    var l = if (_r.stdout.len > state.login.path[0..].len) state.login.path[0..].len else _r.stdout.len;
-                    // Remove whitespace
-                    while (l > 0 and std.ascii.isWhitespace(_r.stdout[l - 1])) : (l -= 1) {}
-                    @memset(state.login.path[0..], 0);
-                    @memcpy(state.login.path[0..l], _r.stdout[0..l]);
-
-                    // Update the path of the database file
-                    var config_file = try db.Config.load(gpa);
-                    gpa.free(config_file.db_path);
-                    config_file.db_path = state.login.path[0..l];
-                    try config_file.save();
-                }
-
-                gpa.free(_r.stdout);
-                gpa.free(_r.stderr);
-            }
-        }
-    }
-    {
-        if (try dvui.button(@src(), "Unlock", .{
-            .corner_radius = dvui.Rect.all(0),
-            .gravity_x = 1.0,
-            .gravity_y = 1.0,
-        })) blk: {
-            application_state.dvui_dbOpen(
-                state.login.path[0..slen(&state.login.path)],
-                state.login.pw[0..slen(&state.login.pw)],
-                gpa,
-            ) catch {
-                break :blk;
-            };
-
-            s = .{
-                .main = .{
-                    .t = try std.Thread.spawn(.{}, auth_fn, .{}),
-                },
-            };
-            application_state.pw = try gpa.dupe(u8, state.login.pw[0..slen(&state.login.pw)]);
-            application_state.f = try gpa.dupe(u8, state.login.path[0..strlen(&state.login.path)]);
-            @memset(state.login.pw[0..], 0);
-        }
-    }
-
-    if (s) |_s| {
-        try application_state.app_state.pushState(_s);
-    }
-}
-
-inline fn slen(s: []const u8) usize {
+pub inline fn slen(s: []const u8) usize {
     return std.mem.indexOfScalar(u8, s, 0) orelse s.len;
 }
 
-fn strlen(s: [*c]const u8) usize {
+pub fn strlen(s: [*c]const u8) usize {
     var i: usize = 0;
     while (s[i] != 0) : (i += 1) {}
     return i;
@@ -1060,7 +933,7 @@ const callbacks = keylib.ctap.authenticator.callbacks.Callbacks{
     .delete = my_delete,
 };
 
-fn auth_fn() !void {
+pub fn auth_fn() !void {
     var auth = keylib.ctap.authenticator.Auth.default(callbacks, gpa);
     auth.constSignCount = true;
     try auth.init();
