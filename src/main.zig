@@ -101,23 +101,9 @@ pub fn main() !void {
     switch (application_state.app_state.getStateTag()) {
         .login => {},
         .main => {
-            var data = &application_state.app_state.getState().main;
-            data.stop = true;
-            data.t.join();
-            data = undefined;
-            _ = application_state.app_state.states.pop();
-
-            application_state.database.deinit();
-            @memset(application_state.pw, 0);
-            gpa.free(application_state.pw);
-            application_state.pw = undefined;
-            @memset(application_state.f, 0);
-            gpa.free(application_state.f);
-            application_state.f = undefined;
+            application_state.deinit(gpa);
         },
     }
-
-    // TODO: properly clean up DB etc.
 }
 
 var show_dialog: bool = false;
@@ -153,19 +139,7 @@ fn dvui_frame() !void {
                     if (try dvui.menuItemLabel(@src(), "Lock Database", .{}, .{
                         .corner_radius = dvui.Rect.all(0),
                     }) != null) {
-                        var data = &application_state.app_state.getState().main;
-                        data.stop = true;
-                        data.t.join();
-                        data = undefined;
-                        _ = application_state.app_state.states.pop();
-
-                        application_state.database.deinit();
-                        @memset(application_state.pw, 0);
-                        gpa.free(application_state.pw);
-                        application_state.pw = undefined;
-                        @memset(application_state.f, 0);
-                        gpa.free(application_state.f);
-                        application_state.f = undefined;
+                        application_state.deinit(gpa);
                     }
                 },
             }

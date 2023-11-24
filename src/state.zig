@@ -56,8 +56,20 @@ pub fn dvui_dbOpen(
     };
 }
 
-pub fn deinit() void {
-    // TODO
+pub fn deinit(a: std.mem.Allocator) void {
+    var data = &app_state.getState().main;
+    data.stop = true;
+    data.t.join();
+    data = undefined;
+    _ = app_state.states.pop();
+
+    database.deinit();
+    @memset(pw, 0);
+    a.free(pw);
+    pw = undefined;
+    @memset(f, 0);
+    a.free(f);
+    f = undefined;
 }
 
 pub const AppState = struct {
