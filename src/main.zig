@@ -30,8 +30,8 @@ pub fn main() !void {
 
     // init SDL backend (creates OS window)
     var backend = try Backend.init(.{
-        .width = 680,
-        .height = 400,
+        .size = .{ .w = 680.0, .h = 400.0 },
+        .min_size = .{ .w = 680.0, .h = 400.0 },
         .vsync = vsync,
         .title = "PassKeeZ",
     });

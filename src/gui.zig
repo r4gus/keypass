@@ -68,8 +68,12 @@ pub fn dvui_frame() !void {
         }
     }
 
-    var scroll = try dvui.scrollArea(@src(), .{}, .{ .expand = .both, .color_style = .window });
-    defer scroll.deinit();
+    var outer_box = try dvui.box(@src(), .vertical, .{
+        .expand = .both,
+        .color_style = .window,
+        .background = true,
+    });
+    defer outer_box.deinit();
 
     switch (application_state.app_state.getStateTag()) {
         .login => try login_frame(),
