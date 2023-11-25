@@ -11,8 +11,8 @@
             .hash = "1220486ab0c0ccc79b89457a57cb1dbdb879de039305873317f589a8f77a003b67be",
         },
         .dvui = .{
-            .url = "https://github.com/david-vanderson/dvui/archive/b0d4854f3f3d25872163d4e645b883e0328b088d.tar.gz",
-            .hash = "12203c6d9c649ca02fa899c5550f12e7b8052bbff8ab156456aabd559e104baa3cc0",
+            .url = "https://github.com/david-vanderson/dvui/archive/3b8b6285fe4935222bebf2e748dc46e7712bdec1.tar.gz",
+            .hash = "12205389f0f2d653089222ca0dab575baa25cc5eef9d226e5a76f9c55ca41f306cfb",
         },
     },
 }

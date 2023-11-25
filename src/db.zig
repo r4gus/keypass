@@ -2,8 +2,12 @@ const std = @import("std");
 const tresor = @import("tresor");
 
 pub fn open(path: []const u8, pw: []const u8, a: std.mem.Allocator) !tresor.Tresor {
-    var file = openFile(path) catch {
-        return error.NotFound;
+    var file = openFile(path) catch |e| {
+        if (e == error.WouldBlock) {
+            return error.WouldBlock;
+        } else {
+            return error.NotFound;
+        }
     };
     defer file.close();
 
@@ -25,13 +29,25 @@ pub fn openFile(path: []const u8) !std.fs.File {
         if (home == null) return error.NoHome;
         var home_dir = try std.fs.openDirAbsolute(home.?, .{});
         defer home_dir.close();
-        var file = try home_dir.openFile(path[2..], .{ .mode = .read_write });
+        var file = try home_dir.openFile(path[2..], .{
+            .mode = .read_write,
+            .lock = .exclusive,
+            .lock_nonblocking = true,
+        });
         break :blk file;
     } else if (path[0] == '/') blk: {
-        var file = try std.fs.openFileAbsolute(path[0..], .{ .mode = .read_write });
+        var file = try std.fs.openFileAbsolute(path[0..], .{
+            .mode = .read_write,
+            .lock = .exclusive,
+            .lock_nonblocking = true,
+        });
         break :blk file;
     } else blk: {
-        var file = try std.fs.cwd().openFile(path[0..], .{ .mode = .read_write });
+        var file = try std.fs.cwd().openFile(path[0..], .{
+            .mode = .read_write,
+            .lock = .exclusive,
+            .lock_nonblocking = true,
+        });
         break :blk file;
     };
 }
