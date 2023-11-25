@@ -1,13 +1,14 @@
 const dvui = @import("dvui");
 const main = @import("../main.zig");
+const gui = @import("../gui.zig");
 
 pub fn info_dialog() !void {
-    var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &main.show_dialog }, .{
+    var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &gui.show_dialog }, .{
         .corner_radius = dvui.Rect.all(0),
     });
     defer dialog_win.deinit();
 
-    try dvui.windowHeader("About PassKeeZ", "", &main.show_dialog);
+    try dvui.windowHeader("About PassKeeZ", "", &gui.show_dialog);
     try dvui.label(@src(), "About", .{}, .{ .font_style = .title_4 });
 
     {

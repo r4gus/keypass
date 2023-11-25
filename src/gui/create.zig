@@ -3,6 +3,7 @@ const dvui = @import("dvui");
 const main = @import("../main.zig");
 const tresor = @import("tresor");
 const db = @import("../db.zig");
+const gui = @import("../gui.zig");
 
 /// Dialog for creating a new database
 pub fn create_db_dialog() !void {
@@ -24,13 +25,13 @@ pub fn create_db_dialog() !void {
     const pw_err_msg = checkPw(S.pw1[0..main.slen(&S.pw1)], S.pw2[0..main.slen(&S.pw2)]);
     const pw_dont_match = if (pw_err_msg != null) red else null;
 
-    var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &main.show_create_dialog }, .{
+    var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &gui.show_create_dialog }, .{
         .corner_radius = dvui.Rect.all(0),
         .min_size_content = .{ .w = 400.0, .h = 390.0 },
     });
 
     defer dialog_win.deinit();
-    try dvui.windowHeader("New Database", "", &main.show_create_dialog);
+    try dvui.windowHeader("New Database", "", &gui.show_create_dialog);
 
     {
         var hbox = try dvui.box(@src(), .vertical, .{
@@ -282,7 +283,7 @@ pub fn create_db_dialog() !void {
             config_file.db_path = absolute_path;
             try config_file.save();
 
-            main.show_create_dialog = false;
+            gui.show_create_dialog = false;
             // TODO: deinit all buffers
         }
 
@@ -291,7 +292,7 @@ pub fn create_db_dialog() !void {
             .gravity_x = 1.0,
             .gravity_y = 1.0,
         })) {
-            main.show_create_dialog = false;
+            gui.show_create_dialog = false;
         }
     }
 
