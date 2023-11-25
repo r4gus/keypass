@@ -6,6 +6,15 @@ const main = @import("../main.zig");
 const dvui = @import("dvui");
 
 pub fn main_frame() !void {
+    const S = struct {
+        var search_string: [256]u8 = .{0} ** 256;
+
+        pub fn getSearchString() []const u8 {
+            return search_string[0..main.slen(&search_string)];
+        }
+    };
+    var cred_counter: usize = 0;
+
     {
         var scroll = try dvui.scrollArea(@src(), .{}, .{ .expand = .both, .color_style = .window });
         defer scroll.deinit();
@@ -26,53 +35,95 @@ pub fn main_frame() !void {
                         };
                         defer cred.deinit(main.gpa);
 
-                        var box = try dvui.box(@src(), .vertical, .{
+                        // Filter credentials using search string
+                        const needle = S.getSearchString();
+                        var match: bool = true;
+                        if (needle.len > 0) blk: {
+                            match = false;
+                            if (cred.user.name) |name| {
+                                if (std.mem.indexOf(u8, name, needle) != null) {
+                                    match = true;
+                                    break :blk;
+                                }
+                            }
+                            if (cred.user.displayName) |name| {
+                                if (std.mem.indexOf(u8, name, needle) != null) {
+                                    match = true;
+                                    break :blk;
+                                }
+                            }
+                            if (std.mem.indexOf(u8, cred.rp.id, needle) != null) {
+                                match = true;
+                                break :blk;
+                            }
+                        }
+
+                        if (!match) continue;
+
+                        // We count the displayed credentials so we can display the number
+                        // at the bottom of the page.
+                        cred_counter += 1;
+
+                        var outer_box = try dvui.box(@src(), .horizontal, .{
                             .margin = dvui.Rect{ .x = 8.0, .y = 8.0, .w = 8.0 },
                             .padding = dvui.Rect.all(8),
                             .background = true,
                             .expand = .horizontal,
                             .id_extra = i,
                         });
-                        defer box.deinit();
+                        defer outer_box.deinit();
+
+                        try dvui.icon(@src(), "key", dvui.entypo.key, .{ .gravity_y = 0.5, .min_size_content = .{ .h = 24 }, .margin = dvui.Rect{ .w = 4.0 } });
 
                         {
-                            //var rp_box = try dvui.box(@src(), .vertical, .{});
-                            //defer rp_box.deinit();
+                            var box = try dvui.box(@src(), .vertical, .{
+                                .expand = .horizontal,
+                                .id_extra = i,
+                            });
+                            defer box.deinit();
 
                             {
-                                var hbox = try dvui.box(@src(), .horizontal, .{});
-                                defer hbox.deinit();
+                                {
+                                    var hbox = try dvui.box(@src(), .horizontal, .{});
+                                    defer hbox.deinit();
 
-                                try dvui.label(@src(), "Relying Party:", .{}, .{});
-                                if (try dvui.labelClick(@src(), "{s}", .{cred.rp.id}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
-                                    if (cred.rp.id.len < 5 or !std.mem.eql(u8, "https", cred.rp.id[0..5])) {
-                                        var rps = try main.gpa.alloc(u8, cred.rp.id.len + 8);
-                                        defer main.gpa.free(rps);
-                                        @memcpy(rps[0..8], "https://");
-                                        @memcpy(rps[8..], cred.rp.id);
-                                        try dvui.openURL(rps);
-                                    } else {
-                                        try dvui.openURL(cred.rp.id);
+                                    try dvui.label(@src(), "URL:", .{}, .{});
+                                    if (try dvui.labelClick(@src(), "{s}", .{cred.rp.id}, .{ .gravity_y = 0.5, .color_text = .{ .r = 0x35, .g = 0x84, .b = 0xe4 } })) {
+                                        if (cred.rp.id.len < 5 or !std.mem.eql(u8, "https", cred.rp.id[0..5])) {
+                                            var rps = try main.gpa.alloc(u8, cred.rp.id.len + 8);
+                                            defer main.gpa.free(rps);
+                                            @memcpy(rps[0..8], "https://");
+                                            @memcpy(rps[8..], cred.rp.id);
+                                            try dvui.openURL(rps);
+                                        } else {
+                                            try dvui.openURL(cred.rp.id);
+                                        }
                                     }
                                 }
-                            }
 
-                            //try dvui.label(@src(), "Relying Party: {s}", .{cred.rp.id}, .{ .gravity_y = 0.5 });
-                            try dvui.label(@src(), "User: {s}", .{if (cred.user.displayName) |dn| blk: {
-                                break :blk dn;
-                            } else if (cred.user.name) |n| blk: {
-                                break :blk n;
-                            } else blk: {
-                                break :blk "?";
-                            }}, .{ .gravity_y = 0.5 });
-                            try dvui.label(@src(), "Signatures Created: {d}", .{cred.sign_count}, .{ .gravity_y = 0.5 });
-                            if (try dvui.button(@src(), "Delete", .{}, .{
-                                .color_style = .err,
-                                .corner_radius = dvui.Rect.all(0),
-                                .gravity_x = 1.0,
-                                .gravity_y = 1.0,
-                            })) {}
+                                //try dvui.label(@src(), "Relying Party: {s}", .{cred.rp.id}, .{ .gravity_y = 0.5 });
+                                try dvui.label(@src(), "Username: {s}", .{if (cred.user.displayName) |dn| blk: {
+                                    break :blk dn;
+                                } else if (cred.user.name) |n| blk: {
+                                    break :blk n;
+                                } else blk: {
+                                    break :blk "?";
+                                }}, .{ .gravity_y = 0.5 });
+                            }
                         }
+
+                        if (try dvui.buttonIcon(
+                            @src(),
+                            "cog",
+                            dvui.entypo.cog,
+                            .{},
+                            .{
+                                .gravity_y = 0.5,
+                                .corner_radius = dvui.Rect.all(0),
+                                .min_size_content = .{ .h = 24 },
+                                .background = false,
+                            },
+                        )) {}
                     }
                 }
             } else { // entries.len == 0
@@ -93,6 +144,22 @@ pub fn main_frame() !void {
             .expand = .horizontal,
         });
         defer box.deinit();
-        try dvui.label(@src(), "Credentials: {d}", .{1}, .{});
+
+        try dvui.label(@src(), "{d} {s}", .{
+            cred_counter,
+            if (cred_counter == 1) "Credential" else "Credentials",
+        }, .{
+            .gravity_y = 0.5,
+        });
+
+        var search = try dvui.textEntry(@src(), .{
+            .text = &S.search_string,
+            .password_char = null,
+        }, .{
+            .corner_radius = dvui.Rect.all(0),
+            .gravity_x = 1.0,
+            .gravity_y = 0.5,
+        });
+        search.deinit();
     }
 }
