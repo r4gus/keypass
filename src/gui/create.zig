@@ -321,7 +321,7 @@ pub fn create_db_dialog() !void {
     }
 }
 
-fn checkPw(pw1: []const u8, pw2: []const u8) ?[]const u8 {
+pub fn checkPw(pw1: []const u8, pw2: []const u8) ?[]const u8 {
     if (!std.mem.eql(u8, pw1[0..], pw2[0..])) return "passwords don't match";
     if (pw1.len < 8) return "password must be at least 8 characters long";
     return null;

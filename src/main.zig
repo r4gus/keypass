@@ -342,43 +342,10 @@ pub fn my_write(
         };
     }
 
-    var f2 = std.fs.createFileAbsolute("/tmp/db.trs", .{ .truncate = true }) catch {
-        std.log.err("unable to open temporary file in /tmp", .{});
+    // persist data
+    application_state.writeDb(gpa) catch {
         return Error.Other;
     };
-    defer f2.close();
-
-    application_state.database.seal(f2.writer(), application_state.pw) catch {
-        std.log.err("unable to persist database", .{});
-        return Error.Other;
-    };
-
-    if (application_state.f[0] == '~' and application_state.f[1] == '/') {
-        if (std.os.getenv("HOME")) |home| {
-            var path = std.fmt.allocPrint(gpa, "{s}/{s}", .{ home, application_state.f[2..] }) catch {
-                std.log.err("out of memory", .{});
-                return Error.Other;
-            };
-            defer gpa.free(path);
-            std.log.err("{s}", .{path});
-
-            std.fs.copyFileAbsolute("/tmp/db.trs", path, .{}) catch {
-                std.log.err("unable to overwrite file `{s}`", .{application_state.f});
-                return Error.Other;
-            };
-        } else {
-            std.log.err("no HOME path", .{});
-            return Error.Other;
-        }
-    } else if (application_state.f[0] == '/') {
-        std.fs.copyFileAbsolute("/tmp/db.trs", application_state.f, .{}) catch {
-            std.log.err("unable to overwrite file `{s}`", .{application_state.f});
-            return Error.Other;
-        };
-    } else {
-        std.log.err("support for file prefix not implemented yet!!!", .{});
-        return Error.Other;
-    }
 
     return Error.SUCCESS;
 }

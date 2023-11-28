@@ -56,6 +56,46 @@ pub fn dvui_dbOpen(
     };
 }
 
+pub fn writeDb(gpa: std.mem.Allocator) !void {
+    var f2 = std.fs.createFileAbsolute("/tmp/db.trs", .{ .truncate = true }) catch |e| {
+        std.log.err("unable to open temporary file in /tmp", .{});
+        return e;
+    };
+    defer f2.close();
+
+    database.seal(f2.writer(), pw) catch |e| {
+        std.log.err("unable to persist database", .{});
+        return e;
+    };
+
+    if (f[0] == '~' and f[1] == '/') {
+        if (std.os.getenv("HOME")) |home| {
+            var path = std.fmt.allocPrint(gpa, "{s}/{s}", .{ home, f[2..] }) catch |e| {
+                std.log.err("out of memory", .{});
+                return e;
+            };
+            defer gpa.free(path);
+            std.log.err("{s}", .{path});
+
+            std.fs.copyFileAbsolute("/tmp/db.trs", path, .{}) catch |e| {
+                std.log.err("unable to overwrite file `{s}`", .{f});
+                return e;
+            };
+        } else {
+            std.log.err("no HOME path", .{});
+            return error.NoHome;
+        }
+    } else if (f[0] == '/') {
+        std.fs.copyFileAbsolute("/tmp/db.trs", f, .{}) catch |e| {
+            std.log.err("unable to overwrite file `{s}`", .{f});
+            return e;
+        };
+    } else {
+        std.log.err("support for file prefix not implemented yet!!!", .{});
+        return error.InvalidFilePrefix;
+    }
+}
+
 pub fn deinit(a: std.mem.Allocator) void {
     var data = &app_state.getState().main;
     data.stop = true;
