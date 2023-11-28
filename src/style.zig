@@ -33,6 +33,7 @@ pub var keypass_light = Theme{
         .border = Color.lerp(control, 0.4, Color.white),
         .hover = Color.lerp(control, 0.2, Color.white),
         .press = Color.lerp(control, 0.3, Color.white),
+        .press_text = Color.white,
     },
 
     .style_control = .{
@@ -42,6 +43,7 @@ pub var keypass_light = Theme{
         .border = Color.lerp(control, 0.4, Color.black),
         .hover = Color.lerp(control, 0.2, Color.black),
         .press = Color.lerp(control, 0.3, Color.black),
+        .press_text = Color.white,
     },
     .style_window = .{ .fill = Color{ .r = 35, .g = 45, .b = 63 } },
 
@@ -52,6 +54,7 @@ pub var keypass_light = Theme{
         .border = Color.lerp(accent, 0.4, Color.white),
         .hover = Color.lerp(accent, 0.2, Color.white),
         .press = Color.lerp(accent, 0.3, Color.white),
+        .press_text = Color.white,
     },
     .style_success = .{
         .accent = success.darken(0.3),
@@ -60,6 +63,7 @@ pub var keypass_light = Theme{
         .border = Color.lerp(success, 0.4, Color.white),
         .hover = Color.lerp(success, 0.2, Color.white),
         .press = Color.lerp(success, 0.3, Color.white),
+        .press_text = Color.white,
     },
     .style_err = .{
         .accent = err.darken(0.3),
@@ -68,5 +72,6 @@ pub var keypass_light = Theme{
         .border = Color.lerp(err, 0.4, Color.white),
         .hover = Color.lerp(err, 0.2, Color.white),
         .press = Color.lerp(err, 0.3, Color.white),
+        .press_text = Color.white,
     },
 };
