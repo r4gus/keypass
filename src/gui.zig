@@ -7,10 +7,15 @@ pub const main_frame = @import("gui/main.zig").main_frame;
 pub const info_dialog = @import("gui/info.zig").info_dialog;
 pub const create_db_dialog = @import("gui/create.zig").create_db_dialog;
 pub const database_security_dialog = @import("gui/database_security.zig").database_security_dialog;
+pub const edit_credential_dialog = @import("gui/edit_credential.zig").edit_credential_dialog;
 
 pub var show_dialog: bool = false;
 pub var show_create_dialog: bool = false;
 pub var show_database_security_dialog: bool = false;
+pub const edit_credential = struct {
+    pub var show: bool = false;
+    pub var id: ?[]const u8 = null;
+};
 
 pub fn dvui_frame() !void {
     {
@@ -100,5 +105,14 @@ pub fn dvui_frame() !void {
 
     if (show_database_security_dialog) {
         try database_security_dialog();
+    }
+
+    if (edit_credential.show) {
+        try edit_credential_dialog(edit_credential.id.?);
+    } else {
+        if (edit_credential.id) |id| {
+            main.gpa.free(id);
+            edit_credential.id = null;
+        }
     }
 }

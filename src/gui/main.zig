@@ -4,6 +4,7 @@ const keylib = @import("keylib");
 const application_state = @import("../state.zig");
 const main = @import("../main.zig");
 const dvui = @import("dvui");
+const gui = @import("../gui.zig");
 
 pub fn main_frame() !void {
     const S = struct {
@@ -123,7 +124,13 @@ pub fn main_frame() !void {
                                 .min_size_content = .{ .h = 24 },
                                 .background = false,
                             },
-                        )) {}
+                        )) {
+                            if (gui.edit_credential.id) |id| {
+                                main.gpa.free(id);
+                            }
+                            gui.edit_credential.id = try main.gpa.dupe(u8, cred.id);
+                            gui.edit_credential.show = true;
+                        }
                     }
                 }
             } else { // entries.len == 0
