@@ -7,7 +7,7 @@ A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://gi
 | Cromium   | &#9989;    | 119.0.6045.159 (Official Build) Arch Linux (64-bit) | |
 | Brave | &#9989; | Version 1.60.118 Chromium: 119.0.6045.163 (Official Build) (64-bit) | |
 | Firefox | &#128679; | 120.0 (64-bit) | sign-in works |
-| Opera | &#128679; | version: 105.0.4970.16 chromium: 119.0.6045.159 | |
+| Opera | &#9989; | version: 105.0.4970.16 chromium: 119.0.6045.159 | |
 
 > INFO: All tests were conducted using the passkey sign-in option for Github.
 
