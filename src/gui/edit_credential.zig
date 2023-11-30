@@ -40,6 +40,16 @@ pub fn edit_credential_dialog(id: []const u8) !void {
             try dvui.label(@src(), "Identifier: {s}", .{hid}, .{ .gravity_y = 0.5 });
         }
 
+        var vbox2 = try dvui.box(@src(), .vertical, .{
+            .expand = .horizontal,
+            .border = .{ .x = 1.0, .y = 1.0, .w = 1.0, .h = 1.0 },
+            .color_border = dvui.Color{ .r = 255, .g = 0, .b = 0 },
+            .background = null,
+            .margin = .{ .x = 1.0, .y = 10.0, .w = 1.0, .h = 1.0 },
+            .padding = .{ .x = 1.0, .y = 1.0, .w = 1.0, .h = 1.0 },
+        });
+        defer vbox2.deinit();
+
         try dvui.label(@src(), "Danger Zone", .{}, .{ .font_style = .title_4 });
 
         {
@@ -47,27 +57,26 @@ pub fn edit_credential_dialog(id: []const u8) !void {
             defer hbox.deinit();
 
             try dvui.label(@src(), "Delete credential: ", .{}, .{ .gravity_y = 0.5 });
-            if (try dvui.button(@src(), "plus", .{}, .{
+            if (try dvui.button(@src(), "delete", .{}, .{
                 .gravity_y = 0.5,
                 .color_fill = if (!S.toggle_danger) .{ .r = 128, .g = 128, .b = 128 } else style.err,
             })) {
                 if (S.toggle_danger) {
                     // The user has enabled the delete button
-                    //application_state.database.removeEntry(id) catch {
-                    //    try dvui.toast(@src(), .{ .message = "Unable to delete credential" });
-                    //    S.toggle_danger = false;
-                    //    gui.edit_credential.show = false;
-                    //    return;
-                    //};
-
-                    var s = application_state.database.getEntry(id);
-                    if (s == null) try dvui.toast(@src(), .{ .message = "Unable to get credential" });
-                    S.toggle_danger = false;
-                    gui.edit_credential.show = false;
-                    if (true) return;
+                    application_state.database.removeEntry(id) catch {
+                        try dvui.toast(@src(), .{ .message = "Unable to delete credential" });
+                        S.toggle_danger = false;
+                        gui.edit_credential.show = false;
+                        return;
+                    };
 
                     // persist change
-                    try application_state.writeDb(main.gpa);
+                    application_state.writeDb(main.gpa) catch {
+                        try dvui.toast(@src(), .{ .message = "Unable to update database" });
+                        S.toggle_danger = false;
+                        gui.edit_credential.show = false;
+                        return;
+                    };
 
                     S.toggle_danger = false;
                     gui.edit_credential.show = false;
@@ -75,7 +84,7 @@ pub fn edit_credential_dialog(id: []const u8) !void {
                     return;
                 }
             }
-            try dvui.checkbox(@src(), &S.toggle_danger, "unlock", .{});
+            try dvui.checkbox(@src(), &S.toggle_danger, "unlock", .{ .gravity_x = 1.0, .gravity_y = 0.5 });
         }
     }
 }
