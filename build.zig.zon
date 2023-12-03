@@ -3,12 +3,12 @@
     .version = "0.1.0",
     .dependencies = .{
         .keylib = .{
-            .url = "https://github.com/r4gus/keylib/archive/master.tar.gz",
-            .hash = "1220e18e9b0e9b8d71dfe5b90da91cbc80640c600e343c09dd708b44bcf14133a738",
+            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.1.0.tar.gz",
+            .hash = "12208d2987dc43810d142e0a6410606a112fbe953f1cece91d4a15304cc39752dfea",
         },
         .tresor = .{
-            .url = "https://github.com/r4gus/tresor/archive/master.tar.gz",
-            .hash = "1220486ab0c0ccc79b89457a57cb1dbdb879de039305873317f589a8f77a003b67be",
+            .url = "https://github.com/r4gus/tresor/archive/refs/tags/0.1.1.tar.gz",
+            .hash = "12207764da1293dc277b8942c93a9972ab93ba61d8949eaf96395fc84f61f8c0d760",
         },
         .dvui = .{
             .url = "https://github.com/david-vanderson/dvui/archive/46dc2cbf54ccf87d58fb9d70fbd73ad1370cb903.tar.gz",
