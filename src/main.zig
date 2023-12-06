@@ -10,6 +10,8 @@ const style = @import("style.zig");
 const application_state = @import("state.zig");
 const gui = @import("gui.zig");
 
+pub const VERSION: []const u8 = "0.1.1";
+
 const window_icon_png = @embedFile("static/passkeez.png");
 
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};

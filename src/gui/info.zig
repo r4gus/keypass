@@ -1,6 +1,9 @@
 const dvui = @import("dvui");
 const main = @import("../main.zig");
 const gui = @import("../gui.zig");
+const cbor = @import("zbor");
+const keylib = @import("keylib");
+const tresor = @import("tresor");
 
 pub fn info_dialog() !void {
     var dialog_win = try dvui.floatingWindow(@src(), .{ .stay_above_parent = true, .modal = false, .open_flag = &gui.show_dialog }, .{
@@ -66,4 +69,10 @@ pub fn info_dialog() !void {
             try dvui.openURL("https://github.com/r4gus/zbor");
         }
     }
+
+    try dvui.label(@src(), "Debug Info", .{}, .{ .font_style = .title_4 });
+    try dvui.label(@src(), "PassKeeZ - Version {s}", .{main.VERSION}, .{});
+    try dvui.label(@src(), "zbor - Version {s}", .{cbor.VERSION}, .{});
+    try dvui.label(@src(), "keylib - Version {s}", .{keylib.VERSION}, .{});
+    try dvui.label(@src(), "tresor - Version {s}", .{tresor.VERSION}, .{});
 }

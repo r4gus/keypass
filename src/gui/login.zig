@@ -6,6 +6,7 @@ const main = @import("../main.zig");
 
 pub fn login_frame() !void {
     const state = application_state.app_state.getState();
+    var enter_pressed = false;
 
     var box = try dvui.box(@src(), .vertical, .{
         .margin = dvui.Rect{ .x = 50.0, .y = 50.0, .w = 50.0, .h = 75.0 },
@@ -30,6 +31,21 @@ pub fn login_frame() !void {
             .expand = .horizontal,
             .corner_radius = dvui.Rect.all(0),
         });
+
+        for (dvui.events()) |*e| {
+            if (!te.matchEvent(e)) {
+                continue;
+            }
+
+            if (e.evt == .key and e.evt.key.code == .enter and e.evt.key.action == .down) {
+                e.handled = true;
+                enter_pressed = true;
+            }
+
+            if (!e.handled) {
+                te.processEvent(e, false);
+            }
+        }
         te.deinit();
 
         if (try dvui.buttonIcon(
@@ -104,7 +120,7 @@ pub fn login_frame() !void {
             .corner_radius = dvui.Rect.all(0),
             .gravity_x = 1.0,
             .gravity_y = 1.0,
-        })) blk: {
+        }) or enter_pressed) blk: {
             application_state.dvui_dbOpen(
                 state.login.path[0..main.slen(&state.login.path)],
                 state.login.pw[0..main.slen(&state.login.pw)],
