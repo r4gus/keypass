@@ -2,6 +2,8 @@
 
 A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://github.com/r4gus/keylib).
 
+![application slide-show](static/out.gif)
+
 | Browser | Supported? | Tested version| Notes |
 |:-------:|:----------:|:-------------:|:-----:|
 | Cromium   | &#9989;    | 119.0.6045.159 (Official Build) Arch Linux (64-bit) | |
