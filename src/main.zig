@@ -167,6 +167,77 @@ pub fn my_up(
             _ = id;
             confirm = (response == dvui.enums.DialogResponse.ok);
         }
+
+        pub fn dialogDisplay(id: u32) !void {
+            const modal = dvui.dataGet(null, id, "_modal", bool) orelse {
+                std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
+                dvui.dialogRemove(id);
+                return;
+            };
+
+            const title = dvui.dataGetSlice(null, id, "_title", []u8) orelse {
+                std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
+                dvui.dialogRemove(id);
+                return;
+            };
+
+            const message = dvui.dataGetSlice(null, id, "_message", []u8) orelse {
+                std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
+                dvui.dialogRemove(id);
+                return;
+            };
+
+            var _win = try dvui.floatingWindow(@src(), .{ .modal = modal }, .{ .id_extra = id });
+            defer _win.deinit();
+
+            var header_openflag = true;
+            try dvui.windowHeader(title, "", &header_openflag);
+            if (!header_openflag) {
+                dvui.dialogRemove(id);
+                try callafter(id, .closed);
+                return;
+            }
+
+            var tl = try dvui.textLayout(@src(), .{}, .{
+                .expand = .horizontal,
+                .background = false,
+                .gravity_x = 0.5,
+                .corner_radius = dvui.Rect.all(0),
+            });
+            try tl.addText(message, .{});
+            tl.deinit();
+
+            var hbox = try dvui.box(@src(), .horizontal, .{
+                .expand = .horizontal,
+            });
+            defer hbox.deinit();
+
+            if (try dvui.button(@src(), "DENIE", .{}, .{
+                .gravity_x = 0.0,
+                .gravity_y = 0.5,
+                .tab_index = 1,
+                .color_fill = style.err,
+                .color_hover = dvui.Color.lerp(style.err, 0.2, dvui.Color.white),
+                .corner_radius = dvui.Rect.all(0),
+            })) {
+                dvui.dialogRemove(id);
+                try callafter(id, .closed);
+                return;
+            }
+
+            if (try dvui.button(@src(), "ACCEPT", .{}, .{
+                .gravity_x = 1.0,
+                .gravity_y = 0.5,
+                .tab_index = 1,
+                .color_fill = style.control,
+                .color_hover = dvui.Color.lerp(style.control, 0.2, dvui.Color.white),
+                .corner_radius = dvui.Rect.all(0),
+            })) {
+                dvui.dialogRemove(id);
+                try callafter(id, .ok);
+                return;
+            }
+        }
     };
 
     const begin = std.time.milliTimestamp();
@@ -178,11 +249,11 @@ pub fn my_up(
         break :blk "oops";
     };
 
-    var message = std.fmt.allocPrint(gpa, "Please confirm your presence for {s} {s}{s}{s} by clicking ok", .{
+    var message = std.fmt.allocPrint(gpa, "Please ACCEPT or DENIE the requested action for {s} {s}{s}{s}", .{
         if (rp != null) rp[0..strlen(rp)] else "???",
         if (user != null) "(" else "",
         if (user != null) user[0..strlen(user)] else "",
-        if (user != null) "(" else "",
+        if (user != null) ")" else "",
     }) catch blk: {
         break :blk "oops";
     };
@@ -193,6 +264,7 @@ pub fn my_up(
         .title = title,
         .message = message,
         .callafterFn = dialogsFollowup.callafter,
+        .displayFn = dialogsFollowup.dialogDisplay,
     }) catch return .Denied;
 
     while (std.time.milliTimestamp() - begin < 60_000) {
@@ -221,6 +293,13 @@ pub fn my_select(
 ) callconv(.C) i32 {
     _ = rpId;
     _ = users;
+    //const id = dvui.hashSrc(@src(), 0xeecd);
+    //const mutex = try win.dialogAdd(id, selectDialog);
+    //dvui.refresh(win, @src(), id);
+    //dvui.dataSet(win, id, "_users", users);
+    //dvui.dataSetSlice(win, "_rpId", rpId[0..slen(rpId)]);
+    //mutex.unlock();
+
     return 0;
 }
 
