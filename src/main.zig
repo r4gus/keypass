@@ -174,6 +174,7 @@ pub fn my_up(
                 dvui.dialogRemove(id);
                 return;
             };
+            _ = modal;
 
             const title = dvui.dataGetSlice(null, id, "_title", []u8) orelse {
                 std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
@@ -187,7 +188,7 @@ pub fn my_up(
                 return;
             };
 
-            var _win = try dvui.floatingWindow(@src(), .{ .modal = modal }, .{ .id_extra = id });
+            var _win = try dvui.floatingWindow(@src(), .{ .modal = true }, .{ .id_extra = id });
             defer _win.deinit();
 
             var header_openflag = true;
