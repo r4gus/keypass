@@ -453,7 +453,7 @@ pub fn auth_fn() !void {
     auth.constSignCount = true;
     try auth.init();
 
-    var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(gpa);
+    var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(gpa, std.crypto.random);
     defer ctaphid.deinit();
 
     var u = try uhid.Uhid.open();
