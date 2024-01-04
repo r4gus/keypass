@@ -462,11 +462,21 @@ pub fn auth_fn() !void {
     while (true) {
         var buffer: [64]u8 = .{0} ** 64;
         if (u.read(&buffer)) |packet| {
-            var response = ctaphid.handle(packet, &auth);
+            var response = ctaphid.handle(packet);
             if (response) |*res| blk: {
-                defer res.deinit();
+                switch (res.cmd) {
+                    .cbor => {
+                        var out: [7609]u8 = undefined;
+                        const r = auth.handle(&out, res.data);
+                        std.mem.copy(u8, res._data[0..r.len], r);
+                        res.data = res._data[0..r.len];
+                    },
+                    else => {},
+                    // TODO: handle CMD
+                }
 
-                while (res.next()) |p| {
+                var iter = res.iterator();
+                while (iter.next()) |p| {
                     u.write(p) catch {
                         break :blk;
                     };
