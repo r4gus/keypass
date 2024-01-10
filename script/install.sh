@@ -29,7 +29,8 @@ fi
 
 git clone https://github.com/r4gus/keypass --branch 0.2.2
 cd keypass
-../$zig build -Doptimize=ReleaseSmall
+#../$zig build -Doptimize=ReleaseSmall
+../$zig build
 rm -rf /usr/local/bin/passkeez
 mkdir /usr/local/bin/passkeez
 cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
