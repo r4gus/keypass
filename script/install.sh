@@ -27,10 +27,9 @@ if [ "$path" != "" ]; then
     zig="$sub/zig"
 fi
 
-git clone https://github.com/r4gus/keypass --branch 0.2.2
+git clone https://github.com/r4gus/keypass --branch 0.2.3
 cd keypass
-#../$zig build -Doptimize=ReleaseSmall
-../$zig build
+../$zig build -Doptimize=ReleaseSmall
 rm -rf /usr/local/bin/passkeez
 mkdir /usr/local/bin/passkeez
 cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
