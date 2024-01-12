@@ -467,9 +467,9 @@ pub fn auth_fn() !void {
                 switch (res.cmd) {
                     .cbor => {
                         var out: [7609]u8 = undefined;
-                        const r = auth.handle(&out, res.data);
+                        const r = auth.handle(&out, res.getData());
                         std.mem.copy(u8, res._data[0..r.len], r);
-                        res.data = res._data[0..r.len];
+                        res.len = r.len;
                     },
                     else => {},
                     // TODO: handle CMD

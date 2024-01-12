@@ -3,8 +3,8 @@
     .version = "0.2.2",
     .dependencies = .{
         .keylib = .{
-            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.3.1.tar.gz",
-            .hash = "122061f7afc3c0b84f2897a153ea430df85a543d2857db241b7d6b47b24c056dfe78",
+            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.3.2.tar.gz",
+            .hash = "1220297fb0e1be757f98a6fa4e9646da285b2dfe41aacf406e5fa4a0d6f589c7b4be",
         },
         .tresor = .{
             .url = "https://github.com/r4gus/tresor/archive/refs/tags/0.1.1.tar.gz",
