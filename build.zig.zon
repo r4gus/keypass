@@ -1,10 +1,10 @@
 .{
     .name = "keypass",
-    .version = "0.2.2",
+    .version = "0.2.4",
     .dependencies = .{
         .keylib = .{
-            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.3.2.tar.gz",
-            .hash = "1220297fb0e1be757f98a6fa4e9646da285b2dfe41aacf406e5fa4a0d6f589c7b4be",
+            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.3.4.tar.gz",
+            .hash = "12207b636ff4701ce71af45e7d8568c40a68d731b5136dfcdae2b9e0ed8f003ad463",
         },
         .tresor = .{
             .url = "https://github.com/r4gus/tresor/archive/refs/tags/0.1.1.tar.gz",

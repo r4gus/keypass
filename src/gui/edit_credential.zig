@@ -62,8 +62,12 @@ pub fn edit_credential_dialog(id: []const u8) !void {
                 .color_fill = if (!S.toggle_danger) .{ .r = 128, .g = 128, .b = 128 } else style.err,
             })) {
                 if (S.toggle_danger) {
+                    // TODO: this is a workaround and will be removed in the future.
+                    var index: usize = 0;
+                    while (index < id.len and id[index] != 0) : (index += 1) {}
+
                     // The user has enabled the delete button
-                    application_state.database.removeEntry(id) catch {
+                    application_state.database.removeEntry(id[0..index]) catch {
                         try dvui.toast(@src(), .{ .message = "Unable to delete credential" });
                         S.toggle_danger = false;
                         gui.edit_credential.show = false;

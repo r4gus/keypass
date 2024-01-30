@@ -10,7 +10,7 @@ const style = @import("style.zig");
 const application_state = @import("state.zig");
 const gui = @import("gui.zig");
 
-pub const VERSION: []const u8 = "0.1.1";
+pub const VERSION: []const u8 = "0.2.4";
 
 const window_icon_png = @embedFile("static/passkeez.png");
 
@@ -474,6 +474,8 @@ pub fn auth_fn() !void {
                     else => {},
                     // TODO: handle CMD
                 }
+
+                std.log.info("response: {s}", .{std.fmt.fmtSliceHexLower(res._data[0..res.len])});
 
                 var iter = res.iterator();
                 while (iter.next()) |p| {
