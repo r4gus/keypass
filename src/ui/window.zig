@@ -8,6 +8,7 @@ pub const Window = struct {
     header: struct {
         gears: [*c]gtk.GtkMenuButton,
     },
+    stack: [*c]gtk.GtkStack,
 
     pub fn new() !Window {
         const builder = try gtk.builderAddFromString(windowDecl);
@@ -18,6 +19,7 @@ pub const Window = struct {
             .header = .{
                 .gears = @ptrCast(gtk.gtk_builder_get_object(builder, "gears")),
             },
+            .stack = @ptrCast(gtk.gtk_builder_get_object(builder, "stack")),
         };
 
         _ = gtk.g_signal_connect_(
@@ -26,6 +28,8 @@ pub const Window = struct {
             @as(gtk.GCallback, @ptrCast(&gtk.gtk_main_quit)),
             null,
         );
+
+        _ = gtk.gtk_stack_set_visible_child_name(self.stack, "login_screen");
 
         return self;
     }
