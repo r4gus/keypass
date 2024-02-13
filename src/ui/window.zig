@@ -1,12 +1,12 @@
 const gtk = @import("../gtk.zig");
 const std = @import("std");
 
-const windowDecl = @embedFile("./window.ui");
+const windowDecl = @embedFile("./main.ui");
 
 pub const Window = struct {
     win: [*c]gtk.GObject,
     header: struct {
-        gears: [*c]gtk.GtkMenuButton,
+        //gears: [*c]gtk.GtkMenuButton,
     },
     stack: [*c]gtk.GtkStack,
 
@@ -17,7 +17,7 @@ pub const Window = struct {
         const self = @This(){
             .win = gtk.gtk_builder_get_object(builder, "window"),
             .header = .{
-                .gears = @ptrCast(gtk.gtk_builder_get_object(builder, "gears")),
+                //.gears = @ptrCast(gtk.gtk_builder_get_object(builder, "gears")),
             },
             .stack = @ptrCast(gtk.gtk_builder_get_object(builder, "stack")),
         };
@@ -29,7 +29,7 @@ pub const Window = struct {
             null,
         );
 
-        _ = gtk.gtk_stack_set_visible_child_name(self.stack, "login_screen");
+        //_ = gtk.gtk_stack_set_visible_child_name(self.stack, "login_screen");
 
         return self;
     }

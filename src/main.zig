@@ -11,7 +11,8 @@ pub fn main() !u8 {
     gtk.gtk_init(0, null);
 
     const window = try Window.new();
-    try gears.init(&window);
+    _ = window;
+    //try gears.init(&window);
 
     gtk.gtk_main();
 
