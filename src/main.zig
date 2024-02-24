@@ -449,7 +449,78 @@ const callbacks = keylib.ctap.authenticator.callbacks.Callbacks{
 };
 
 pub fn auth_fn() !void {
-    var auth = keylib.ctap.authenticator.Auth.default(callbacks, gpa);
+    var auth = keylib.ctap.authenticator.Auth{
+        // The callbacks are the interface between the authenticator and the rest of the application (see below).
+        .callbacks = callbacks,
+        // The commands map from a command code to a command function. All functions have the
+        // same interface and you can implement your own to extend the authenticator beyond
+        // the official spec, e.g. add a command to store passwords.
+        .commands = &.{
+            .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
+            .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
+            .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
+            .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
+            .{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
+        },
+        // The settings are returned by a getInfo request and describe the capabilities
+        // of your authenticator. Make sure your configuration is valid based on the
+        // CTAP2 spec!
+        .settings = .{
+            // Those are the FIDO2 spec you support
+            .versions = &.{ .FIDO_2_0, .FIDO_2_1 },
+            // The extensions are defined as strings which should make it easy to extend
+            // the authenticator (in combination with a new command).
+            .extensions = &.{"credProtect"},
+            // This should be unique for all models of the same authenticator.
+            .aaguid = "\x73\x79\x63\x2e\x70\x61\x73\x73\x6b\x65\x65\x7a\x2e\x6f\x72\x67".*,
+            .options = .{
+                // We don't support the credential management command. If you want to
+                // then you need to implement it yourself and add it to commands and
+                // set this flag to true.
+                .credMgmt = false,
+                // We support discoverable credentials, a.k.a resident keys, a.k.a passkeys
+                .rk = true,
+                // We support built in user verification (see the callback below)
+                .uv = true,
+                // This is a platform authenticator even if we use usb for ipc
+                .plat = true,
+                // We don't support client pin but you could also add the command
+                // yourself and set this to false (not initialized) or true (initialized).
+                .clientPin = null,
+                // We support pinUvAuthToken
+                .pinUvAuthToken = true,
+                // If you want to enforce alwaysUv you also have to set this to true.
+                .alwaysUv = false,
+            },
+            // The pinUvAuth protocol to support. This library implements V1 and V2.
+            .pinUvAuthProtocols = &.{.V2},
+            // The transports your authenticator supports.
+            .transports = &.{.usb},
+            // The algorithms you support.
+            .algorithms = &.{.{ .alg = .Es256 }},
+            .firmwareVersion = 0x0036,
+            .remainingDiscoverableCredentials = 100,
+        },
+        // Here we initialize the pinUvAuth token data structure wich handles the generation
+        // and management of pinUvAuthTokens.
+        .token = keylib.ctap.pinuv.PinUvAuth.v2(std.crypto.random),
+        // Here we set the supported algorithm. You can also implement your
+        // own and add them here.
+        .algorithms = &.{
+            keylib.ctap.crypto.algorithms.Es256,
+        },
+        // This allocator is used to allocate memory and has to be the same
+        // used for the callbacks.
+        .allocator = gpa,
+        // A function to get the epoch time as i64.
+        .milliTimestamp = std.time.milliTimestamp,
+        // A cryptographically secure random number generator
+        .random = std.crypto.random,
+        // If you don't want to increment the sign counts
+        // of credentials (e.g. because you sync them between devices)
+        // set this to true.
+        .constSignCount = true,
+    };
     auth.constSignCount = true;
     try auth.init();
 
