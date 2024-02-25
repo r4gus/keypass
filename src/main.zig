@@ -220,7 +220,14 @@ pub fn my_up(
 
     const r = std.ChildProcess.exec(.{
         .allocator = allocator,
-        .argv = &.{ "zenity", "--question", text, "--title='Authentication Request'", "--timeout=15" },
+        .argv = &.{
+            "zenity",
+            "--question",
+            "--icon=/usr/local/bin/passkeez/passkeez-question.png",
+            text,
+            "--title='Authentication Request'",
+            "--timeout=15",
+        },
     }) catch {
         std.log.err("up: unable to create up dialog", .{});
         return UpResult.Denied;

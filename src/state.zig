@@ -225,7 +225,12 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 if (pw1 == null or pw2 == null or !std.mem.eql(u8, pw1.?, pw2.?)) {
                     const r = try std.ChildProcess.exec(.{
                         .allocator = a,
-                        .argv = &.{ "zenity", "--error", "--text=Passwords do not match" },
+                        .argv = &.{
+                            "zenity",
+                            "--error",
+                            "--icon=/usr/local/bin/passkeez/passkeez-error.png",
+                            "--text=Passwords do not match",
+                        },
                     });
                     defer {
                         a.free(r.stdout);
@@ -254,7 +259,12 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
 
                 const r = try std.ChildProcess.exec(.{
                     .allocator = a,
-                    .argv = &.{ "zenity", "--info", "--text=Database successfully create" },
+                    .argv = &.{
+                        "zenity",
+                        "--info",
+                        "--icon=/usr/local/bin/passkeez/passkeez-ok.png",
+                        "--text=Database successfully create",
+                    },
                 });
                 defer {
                     a.free(r.stdout);

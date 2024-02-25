@@ -1,5 +1,8 @@
 #!/bin/bash
 
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
 # Exit immediately if any command returns a non-zero exit status
 set -e
 
@@ -34,16 +37,19 @@ rm -rf /usr/local/bin/passkeez
 mkdir /usr/local/bin/passkeez
 cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
 cp src/static/passkeez.png /usr/local/bin/passkeez/passkeez.png
+cp src/static/passkeez-ok.png /usr/local/bin/passkeez/passkeez-ok.png
+cp src/static/passkeez-error.png /usr/local/bin/passkeez/passkeez-error.png
+cp src/static/passkeez-question.png /usr/local/bin/passkeez/passkeez-question.png
 cp script/passkeez.service /home/${SUDO_USER}/.config/systemd/user/passkeez.service
 
 if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
     echo "Removing old .desktop file..."
     rm "/home/$SUDO_USER/.local/share/applications/passkeez.desktop"
-    update-desktop-database "/home/$SUDO_USER/.local/share/applications"
+    #update-desktop-database "/home/$SUDO_USER/.local/share/applications"
 fi
-echo "Installing .desktop file..."
-desktop-file-install --dir="/home/$SUDO_USER/.local/share/applications" linux/passkeez.desktop
-update-desktop-database "/home/$SUDO_USER/.local/share/applications"
+#echo "Installing .desktop file..."
+#desktop-file-install --dir="/home/$SUDO_USER/.local/share/applications" linux/passkeez.desktop
+#update-desktop-database "/home/$SUDO_USER/.local/share/applications"
 
 cd ~/
 
@@ -61,6 +67,11 @@ getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
 
 # Add uhid to the list of modules to load during boot
 echo "uhid" > /etc/modules-load.d/fido.conf 
+
+if ! command -v zenity &> /dev/null
+then
+    echo "${RED}zenity seems to be missing... please install!${NC}"
+fi
 
 echo "Installed successfully. Please reboot..."
 
