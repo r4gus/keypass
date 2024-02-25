@@ -53,15 +53,10 @@ pub fn openFile(path: []const u8) !std.fs.File {
 }
 
 pub const Config = struct {
-    pub const Theme = enum {
-        dark,
-    };
-
-    db_path: []const u8 = "",
-    theme: Theme = .dark,
+    db_path: []const u8 = "~/.passkeez/db.trs",
 
     pub fn load(a: std.mem.Allocator) !Config {
-        var file = openFile("~/.keypass/config.json") catch {
+        var file = openFile("~/.passkeez/config.json") catch {
             return error.NotFound;
         };
         defer file.close();
@@ -77,7 +72,7 @@ pub const Config = struct {
         if (home == null) return error.NoHome;
         var home_dir = try std.fs.openDirAbsolute(home.?, .{});
         defer home_dir.close();
-        var file = try home_dir.createFile(".keypass/config.json", .{ .exclusive = false });
+        var file = try home_dir.createFile(".passkeez/config.json", .{ .exclusive = false });
         defer file.close();
         try std.json.stringify(self, .{}, file.writer());
     }
@@ -87,8 +82,8 @@ pub const Config = struct {
         if (home == null) return error.NoHome;
         var home_dir = try std.fs.openDirAbsolute(home.?, .{});
         defer home_dir.close();
-        home_dir.makeDir(".keypass") catch {};
-        var file = try home_dir.createFile(".keypass/config.json", .{ .exclusive = true });
+        home_dir.makeDir(".passkeez") catch {};
+        var file = try home_dir.createFile(".passkeez/config.json", .{ .exclusive = true });
         defer file.close();
 
         var str = std.ArrayList(u8).init(a);
