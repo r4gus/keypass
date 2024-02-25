@@ -49,6 +49,7 @@ pub fn update(a: std.mem.Allocator) void {
         } else if (now - ts_ > tout1) {
             // Requre UP after 10 seconds
             uv_result = UvResult.Accepted;
+            up_result = null;
         }
     }
 }
@@ -63,6 +64,10 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             .allocator = a,
             .argv = &.{ "zenity", "--password", "--title=\"Unlock credential database\"", "--ok-label=\"unlock\"", "--timeout=60" },
         });
+        defer {
+            a.free(password.stdout);
+            a.free(password.stderr);
+        }
         std.log.info("{any}", .{password});
 
         switch (password.term.Exited) {
@@ -73,10 +78,14 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                     a,
                 ) catch |e| {
                     std.log.err("unable to decrypt database {s} ({any})", .{ conf.db_path, e });
-                    _ = try std.ChildProcess.exec(.{
+                    const r = try std.ChildProcess.exec(.{
                         .allocator = a,
                         .argv = &.{ "zenity", "--warning", "--text=\"Wrong password\"" },
                     });
+                    defer {
+                        a.free(r.stdout);
+                        a.free(r.stderr);
+                    }
                     continue :outer;
                 };
 
@@ -91,10 +100,14 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             },
         }
     } else {
-        _ = try std.ChildProcess.exec(.{
+        const r = try std.ChildProcess.exec(.{
             .allocator = a,
             .argv = &.{ "zenity", "--error", "--text=\"Authentication failed\"" },
         });
+        defer {
+            a.free(r.stdout);
+            a.free(r.stderr);
+        }
         return error.Failed;
     }
 }

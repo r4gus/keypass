@@ -205,13 +205,36 @@ pub fn my_up(
     /// Information about the relying party (e.g., `Github (github.com)`)
     rp: [*c]const u8,
 ) callconv(.C) UpResult {
-    _ = info;
     _ = user;
-    _ = rp;
 
     if (State.up_result) |r| return r;
 
-    return UpResult.Denied;
+    const text = std.fmt.allocPrint(allocator, "--text='{s} for {s}?'", .{
+        if (info != null) info[0..strlen(info)] else "Login",
+        if (rp != null) rp[0..strlen(rp)] else "website",
+    }) catch {
+        std.log.err("up: unable to allocate memory for text", .{});
+        return UpResult.Denied;
+    };
+    defer allocator.free(text);
+
+    const r = std.ChildProcess.exec(.{
+        .allocator = allocator,
+        .argv = &.{ "zenity", "--question", text, "--title='Authentication Request'", "--timeout=15" },
+    }) catch {
+        std.log.err("up: unable to create up dialog", .{});
+        return UpResult.Denied;
+    };
+    defer {
+        allocator.free(r.stdout);
+        allocator.free(r.stderr);
+    }
+
+    switch (r.term.Exited) {
+        0 => return UpResult.Accepted,
+        5 => return UpResult.Timeout,
+        else => return UpResult.Denied,
+    }
 }
 
 pub fn my_select(
