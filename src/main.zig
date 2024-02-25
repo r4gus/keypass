@@ -121,12 +121,12 @@ pub fn main() !void {
                     skip = true;
                 };
 
-                if (!initialized) {
-                    try auth.init();
-                    initialized = true;
-                }
-
                 if (!skip) {
+                    if (!initialized) {
+                        try auth.init();
+                        initialized = true;
+                    }
+
                     switch (res.cmd) {
                         // Here we check if its a cbor message and if so, pass
                         // it to the handle() function of our authenticator.

@@ -59,6 +59,14 @@ pub fn authenticate(a: std.mem.Allocator) !void {
 
     var i: usize = 3;
 
+    const f = db.openFile(conf.db_path) catch blk: {
+        break :blk createDialog(a) catch |e| {
+            std.log.err("db creation failed ({any})", .{e});
+            return e;
+        };
+    };
+    f.close();
+
     outer: while (i > 0) : (i -= 1) {
         var password: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
             .allocator = a,
@@ -159,4 +167,97 @@ pub fn deinit(a: std.mem.Allocator) void {
     ts = null;
     uv_result = UvResult.Denied;
     up_result = null;
+}
+
+fn createDialog(a: std.mem.Allocator) !std.fs.File {
+    var r1: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
+        .allocator = a,
+        .argv = &.{
+            "zenity",
+            "--question",
+            "--icon=/usr/local/bin/passkeez/passkeez.png",
+            "--title='PassKeeZ: No database found'",
+            "--text='Do you want to create a new passkey database?'",
+        },
+    });
+    defer {
+        a.free(r1.stdout);
+        a.free(r1.stderr);
+    }
+
+    switch (r1.term.Exited) {
+        0 => {},
+        else => return error.CreateDbRejected,
+    }
+
+    outer: while (true) {
+        var r2: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
+            .allocator = a,
+            .argv = &.{
+                "zenity",
+                "--forms",
+                "--title='PassKeeZ: New Database'",
+                "--text='Please choose a password (numbers, characters, symbols, NO \'|\'!)'",
+                "--add-password='Password'",
+                "--add-password='Repeat Password'",
+                "--ok-label=create",
+            },
+        });
+        defer {
+            a.free(r2.stdout);
+            a.free(r2.stderr);
+        }
+
+        switch (r2.term.Exited) {
+            0 => {
+                std.log.info("{s}", .{r2.stdout});
+                var iter = std.mem.split(u8, r2.stdout[0 .. r2.stdout.len - 1], "|");
+                const pw1 = iter.next();
+                const pw2 = iter.next();
+                std.log.info("{any}, {any}", .{ pw1, pw2 });
+
+                if (pw1 == null or pw2 == null or !std.mem.eql(u8, pw1.?, pw2.?)) {
+                    const r = try std.ChildProcess.exec(.{
+                        .allocator = a,
+                        .argv = &.{ "zenity", "--error", "--text='Passwords do not match'" },
+                    });
+                    defer {
+                        a.free(r.stdout);
+                        a.free(r.stderr);
+                    }
+                    continue :outer;
+                }
+
+                const f_db = try db.createFile(conf.db_path);
+                errdefer f_db.close();
+
+                var store = try tresor.Tresor.new(
+                    1,
+                    0,
+                    .ChaCha20,
+                    .None,
+                    .Argon2id,
+                    "PassKey",
+                    "PassKeeZ",
+                    a,
+                    std.crypto.random,
+                    std.time.milliTimestamp,
+                );
+                defer store.deinit();
+                try store.seal(f_db.writer(), pw1.?);
+
+                const r = try std.ChildProcess.exec(.{
+                    .allocator = a,
+                    .argv = &.{ "zenity", "--info", "--text='Database successfully create'" },
+                });
+                defer {
+                    a.free(r.stdout);
+                    a.free(r.stderr);
+                }
+
+                return f_db;
+            },
+            else => return error.CreateDbRejected,
+        }
+    }
 }

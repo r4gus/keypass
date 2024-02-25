@@ -52,6 +52,29 @@ pub fn openFile(path: []const u8) !std.fs.File {
     };
 }
 
+pub fn createFile(path: []const u8) !std.fs.File {
+    return if (path[0] == '~' and path[1] == '/') blk: {
+        const home = std.os.getenv("HOME");
+        if (home == null) return error.NoHome;
+        var home_dir = try std.fs.openDirAbsolute(home.?, .{});
+        defer home_dir.close();
+        var file = try home_dir.createFile(path[2..], .{
+            .exclusive = true,
+        });
+        break :blk file;
+    } else if (path[0] == '/') blk: {
+        var file = try std.fs.createFileAbsolute(path[0..], .{
+            .exclusive = true,
+        });
+        break :blk file;
+    } else blk: {
+        var file = try std.fs.cwd().createFile(path[0..], .{
+            .exclusive = true,
+        });
+        break :blk file;
+    };
+}
+
 pub const Config = struct {
     db_path: []const u8 = "~/.passkeez/db.trs",
 
