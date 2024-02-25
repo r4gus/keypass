@@ -70,7 +70,13 @@ pub fn authenticate(a: std.mem.Allocator) !void {
     outer: while (i > 0) : (i -= 1) {
         var password: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
             .allocator = a,
-            .argv = &.{ "zenity", "--password", "--title=\"Unlock credential database\"", "--ok-label=\"unlock\"", "--timeout=60" },
+            .argv = &.{
+                "zenity",
+                "--password",
+                "--title=Unlock credential database",
+                "--ok-label=unlock",
+                "--timeout=60",
+            },
         });
         defer {
             a.free(password.stdout);
@@ -88,7 +94,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                     std.log.err("unable to decrypt database {s} ({any})", .{ conf.db_path, e });
                     const r = try std.ChildProcess.exec(.{
                         .allocator = a,
-                        .argv = &.{ "zenity", "--warning", "--text=\"Wrong password\"" },
+                        .argv = &.{ "zenity", "--warning", "--text=Wrong password" },
                     });
                     defer {
                         a.free(r.stdout);
@@ -110,7 +116,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
     } else {
         const r = try std.ChildProcess.exec(.{
             .allocator = a,
-            .argv = &.{ "zenity", "--error", "--text=\"Authentication failed\"" },
+            .argv = &.{ "zenity", "--error", "--text=Authentication failed" },
         });
         defer {
             a.free(r.stdout);
@@ -176,8 +182,8 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
             "zenity",
             "--question",
             "--icon=/usr/local/bin/passkeez/passkeez.png",
-            "--title='PassKeeZ: No database found'",
-            "--text='Do you want to create a new passkey database?'",
+            "--title=PassKeeZ: No database found",
+            "--text=Do you want to create a new passkey database?",
         },
     });
     defer {
@@ -196,10 +202,10 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
             .argv = &.{
                 "zenity",
                 "--forms",
-                "--title='PassKeeZ: New Database'",
-                "--text='Please choose a password (numbers, characters, symbols, NO \'|\'!)'",
-                "--add-password='Password'",
-                "--add-password='Repeat Password'",
+                "--title=PassKeeZ: New Database",
+                "--text=Please choose a password (numbers, characters, symbols, NO \'|\'!)",
+                "--add-password=Password",
+                "--add-password=Repeat Password",
                 "--ok-label=create",
             },
         });
@@ -219,7 +225,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 if (pw1 == null or pw2 == null or !std.mem.eql(u8, pw1.?, pw2.?)) {
                     const r = try std.ChildProcess.exec(.{
                         .allocator = a,
-                        .argv = &.{ "zenity", "--error", "--text='Passwords do not match'" },
+                        .argv = &.{ "zenity", "--error", "--text=Passwords do not match" },
                     });
                     defer {
                         a.free(r.stdout);
@@ -248,7 +254,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
 
                 const r = try std.ChildProcess.exec(.{
                     .allocator = a,
-                    .argv = &.{ "zenity", "--info", "--text='Database successfully create'" },
+                    .argv = &.{ "zenity", "--info", "--text=Database successfully create" },
                 });
                 defer {
                     a.free(r.stdout);
