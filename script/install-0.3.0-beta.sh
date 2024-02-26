@@ -1,6 +1,7 @@
 #!/bin/bash
 
 RED='\033[0;31m'
+GREEN='\e[0;32m'
 NC='\033[0m' # No Color
 
 # Exit immediately if any command returns a non-zero exit status
@@ -76,7 +77,12 @@ then
     echo "${RED}zenity seems to be missing... please install!${NC}"
 fi
 
-echo "Installed successfully. Please reboot..."
+echo "${GREEN}PassKeeZ installed successfully.${NC}"
+echo "To enable PassKeeZ run the following commands:"
+echo "    systemctl --user enable passkeez.service"
+echo "    systemctl --user start passkeez.service"
+echo "For further details visit https://github.com/r4gus/keypass"
+echo "Please reboot..."
 
 # Exit successfully
 exit 0
