@@ -55,6 +55,9 @@ cd ~/
 
 echo "PassKeeZ installed into /usr/local/bin/passkeez/"
 
+# This is where all configuration files will live
+mkdir /home/${SUDO_USER}/.passkeez
+
 ##############################################
 #               Postinst                     #
 ##############################################
