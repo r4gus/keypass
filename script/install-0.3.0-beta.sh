@@ -42,10 +42,12 @@ cp src/static/passkeez-ok.png /usr/local/bin/passkeez/passkeez-ok.png
 cp src/static/passkeez-error.png /usr/local/bin/passkeez/passkeez-error.png
 cp src/static/passkeez-question.png /usr/local/bin/passkeez/passkeez-question.png
 
-if [ ! -d /home/${SUDO_USER}/.config/systemd/user ]; then
-  mkdir -p /home/${SUDO_USER}/.config/systemd/user;
-fi
-cp script/passkeez.service /home/${SUDO_USER}/.config/systemd/user/passkeez.service
+# So we can do the following
+# systemctl --user enable passkeez.service
+# systemctl --user start passkeez.service
+# systemctl --user stop passkeez.service
+# systemctl --user status passkeez.service
+cp script/passkeez.service /etc/systemd/user/passkeez.service
 
 if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
     echo "Removing old .desktop file..."
@@ -61,7 +63,7 @@ cd ~/
 echo "PassKeeZ installed into /usr/local/bin/passkeez/"
 
 # This is where all configuration files will live
-mkdir /home/${SUDO_USER}/.passkeez
+sudo -E -u $SUDO_USER mkdir /home/${SUDO_USER}/.passkeez
 
 ##############################################
 #               Postinst                     #
