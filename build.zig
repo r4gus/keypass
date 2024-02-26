@@ -14,11 +14,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const dvui_dep = b.dependency("dvui", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
     const exe = b.addExecutable(.{
         .name = "passkeez",
         .root_source_file = .{ .path = "src/main.zig" },
@@ -29,22 +24,8 @@ pub fn build(b: *std.Build) void {
     exe.addModule("uhid", keylib_dep.module("uhid"));
     exe.addModule("zbor", keylib_dep.module("zbor"));
     exe.addModule("tresor", tresor_dep.module("tresor"));
-
-    exe.addModule("dvui", dvui_dep.module("dvui"));
-    exe.addModule("SDLBackend", dvui_dep.module("SDLBackend"));
-    const freetype_dep = dvui_dep.builder.dependency("freetype", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.linkLibrary(freetype_dep.artifact("freetype"));
-    const stbi_dep = dvui_dep.builder.dependency("stb_image", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.linkLibrary(stbi_dep.artifact("stb_image"));
-    exe.linkSystemLibrary("SDL2");
-
     exe.linkLibC();
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
