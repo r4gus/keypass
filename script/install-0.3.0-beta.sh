@@ -41,6 +41,10 @@ cp src/static/passkeez.png /usr/local/bin/passkeez/passkeez.png
 cp src/static/passkeez-ok.png /usr/local/bin/passkeez/passkeez-ok.png
 cp src/static/passkeez-error.png /usr/local/bin/passkeez/passkeez-error.png
 cp src/static/passkeez-question.png /usr/local/bin/passkeez/passkeez-question.png
+
+if [ ! -d /home/${SUDO_USER}/.config/systemd/user ]; then
+  mkdir -p /home/${SUDO_USER}/.config/systemd/user;
+fi
 cp script/passkeez.service /home/${SUDO_USER}/.config/systemd/user/passkeez.service
 
 if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
