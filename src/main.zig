@@ -29,7 +29,7 @@ pub fn main() !void {
             .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
             .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
             .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
-            .{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
+            //.{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
         },
         // The settings are returned by a getInfo request and describe the capabilities
         // of your authenticator. Make sure your configuration is valid based on the
@@ -114,12 +114,28 @@ pub fn main() !void {
             // get a response.
             if (response) |*res| blk: {
                 var skip = false;
-                State.authenticate(allocator) catch {
-                    std.log.err("authentication failed", .{});
-                    res._data[0] = 0x3f;
-                    res.len = 1;
-                    skip = true;
-                };
+
+                switch (res.cmd) {
+                    .cbor => {
+                        // We have to handle this here as we don't need to
+                        // decrypt the database for this
+                        if (res._data[0] == 0x0b) { // authenticator selection
+                            res._data[0] = @intFromEnum(authenticatorSelection());
+                            res.len = 1;
+                            skip = true;
+                        }
+                    },
+                    else => {},
+                }
+
+                if (!skip) {
+                    State.authenticate(allocator) catch {
+                        std.log.err("authentication failed", .{});
+                        res._data[0] = 0x3f;
+                        res.len = 1;
+                        skip = true;
+                    };
+                }
 
                 if (!skip) {
                     if (!initialized) {
@@ -181,6 +197,33 @@ var data_set = std.ArrayList(Data).init(allocator);
 const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
 const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
 const Error = keylib.ctap.authenticator.callbacks.Error;
+
+pub fn authenticatorSelection() keylib.ctap.StatusCodes {
+    const r = std.ChildProcess.exec(.{
+        .allocator = allocator,
+        .argv = &.{
+            "zenity",
+            "--question",
+            "--icon=/usr/local/bin/passkeez/passkeez.png",
+            "Do you want to use PassKeeZ as your authenticator?",
+            "--title=Authenticator Selection",
+            "--timeout=15",
+        },
+    }) catch {
+        std.log.err("select: unable to create select dialog", .{});
+        return .ctap2_err_operation_denied;
+    };
+    defer {
+        allocator.free(r.stdout);
+        allocator.free(r.stderr);
+    }
+
+    switch (r.term.Exited) {
+        0 => return .ctap1_err_success,
+        5 => return .ctap2_err_user_action_timeout,
+        else => return .ctap2_err_operation_denied,
+    }
+}
 
 pub fn my_uv(
     /// Information about the context (e.g., make credential)
