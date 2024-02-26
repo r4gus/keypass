@@ -59,7 +59,7 @@ pub fn main() !void {
                 // We support pinUvAuthToken
                 .pinUvAuthToken = true,
                 // If you want to enforce alwaysUv you also have to set this to true.
-                .alwaysUv = false,
+                .alwaysUv = true,
             },
             // The pinUvAuth protocol to support. This library implements V1 and V2.
             .pinUvAuthProtocols = &.{.V2},
@@ -205,7 +205,7 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
             "zenity",
             "--question",
             "--icon=/usr/local/bin/passkeez/passkeez.png",
-            "Do you want to use PassKeeZ as your authenticator?",
+            "--text=Do you want to use PassKeeZ as your authenticator?",
             "--title=Authenticator Selection",
             "--timeout=15",
         },
@@ -224,6 +224,23 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
         else => return .ctap2_err_operation_denied,
     }
 }
+
+//pub fn getInfo(
+//    auth: *keylib.ctap.authenticator.Auth,
+//    out: []u8,
+//) usize {
+//    var arr = std.ArrayList(u8).init(allocator);
+//    defer arr.deinit();
+//
+//    cbor.stringify(auth.settings, .{}, arr.writer()) catch {
+//        out[0] = @intFromEnum(keylib.ctap.StatusCodes.ctap1_err_other);
+//        return 1;
+//    };
+//
+//    out[0] = @intFromEnum(keylib.ctap.StatusCodes.ctap1_err_success);
+//    @memcpy(out[1 .. arr.items.len + 1], arr.items);
+//    return arr.items.len + 1;
+//}
 
 pub fn my_uv(
     /// Information about the context (e.g., make credential)
@@ -252,7 +269,7 @@ pub fn my_up(
 
     if (State.up_result) |r| return r;
 
-    const text = std.fmt.allocPrint(allocator, "--text='{s} for {s}?'", .{
+    const text = std.fmt.allocPrint(allocator, "--text={s} for {s}?", .{
         if (info != null) info[0..strlen(info)] else "Login",
         if (rp != null) rp[0..strlen(rp)] else "website",
     }) catch {
@@ -268,7 +285,7 @@ pub fn my_up(
             "--question",
             "--icon=/usr/local/bin/passkeez/passkeez-question.png",
             text,
-            "--title='Authentication Request'",
+            "--title=Authentication Request",
             "--timeout=15",
         },
     }) catch {
