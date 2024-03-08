@@ -13,7 +13,8 @@ A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://gi
 
 > INFO: All tests were conducted using passkey for Github.
 
-> NOTE: Browsers running in sandboxed environments might not be able to communicate with the authenticator out of the box (e.g. when installing browsers with the Ubuntu App Center).
+> [!IMPORTANT]
+> Browsers running in sandboxed environments might not be able to communicate with the authenticator out of the box (e.g. when installing browsers with the Ubuntu App Center).
 
 ## Features
 
