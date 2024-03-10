@@ -11,7 +11,9 @@ A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://gi
 | Firefox | &#9989; | 122.0 (64-bit) |  |
 | Opera | &#9989; | version: 105.0.4970.16 chromium: 119.0.6045.159 | |
 
-> INFO: All tests were conducted using the passkey sign-in option for Github.
+> INFO: All tests were conducted using passkey for Github.
+
+> NOTE: Browsers running in sandboxed environments might not be able to communicate with the authenticator out of the box (e.g. when installing browsers with the Ubuntu App Center).
 
 ## Features
 
@@ -24,11 +26,29 @@ A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://gi
 
 This project is installed by running the following command in your terminal.
 
+### Stable
+
 ```
 sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install.sh)"
 ```
 
 > The current project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
+
+### 0.3.x Beta
+
+I'm currently working on a new version with enhanced UX, including:
+
+* The authenticator runs as a background process (i.e. you don't have to manually open the application anymore)
+* User interaction via [zenity](https://gitlab.gnome.org/GNOME/zenity)
+
+> NOTE: You require zenity `>= 4`
+
+```
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/script/install-0.3.0-beta.sh)"
+```
+
+Installing the application via the `install-0.3.0-beta.sh` will replace the `passkeez` binary! Make sure you backup
+your files, especially your database file! Expect the version to be unstable!
 
 ### Manual installation
 
