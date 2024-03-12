@@ -34,13 +34,13 @@ fi
 git clone https://github.com/r4gus/keypass --branch dev
 cd keypass
 ../$zig build -Doptimize=ReleaseSmall
-rm -rf /usr/local/bin/passkeez
-mkdir /usr/local/bin/passkeez
-cp zig-out/bin/passkeez /usr/local/bin/passkeez/passkeez
-cp src/static/passkeez.png /usr/local/bin/passkeez/passkeez.png
-cp src/static/passkeez-ok.png /usr/local/bin/passkeez/passkeez-ok.png
-cp src/static/passkeez-error.png /usr/local/bin/passkeez/passkeez-error.png
-cp src/static/passkeez-question.png /usr/local/bin/passkeez/passkeez-question.png
+cp zig-out/bin/passkeez /usr/bin/passkeez
+
+mkdir -p /usr/share/passkeez
+cp src/static/passkeez.png /usr/share/passkeez/passkeez.png
+cp src/static/passkeez-ok.png /usr/share/passkeez/passkeez-ok.png
+cp src/static/passkeez-error.png /usr/share/passkeez/passkeez-error.png
+cp src/static/passkeez-question.png /usr/share/passkeez/passkeez-question.png
 
 # So we can do the following
 # systemctl --user enable passkeez.service
@@ -52,22 +52,18 @@ cp script/passkeez.service /etc/systemd/user/passkeez.service
 if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
     echo "Removing old .desktop file..."
     rm "/home/$SUDO_USER/.local/share/applications/passkeez.desktop"
-    #update-desktop-database "/home/$SUDO_USER/.local/share/applications"
 fi
-#echo "Installing .desktop file..."
-#desktop-file-install --dir="/home/$SUDO_USER/.local/share/applications" linux/passkeez.desktop
-#update-desktop-database "/home/$SUDO_USER/.local/share/applications"
 
-echo "PassKeeZ installed into /usr/local/bin/passkeez/"
+echo "PassKeeZ installed into /usr/bin/passkeez/"
 
 # Install zigenity
 cd /tmp
 git clone https://github.com/r4gus/zigenity --branch 0.1.3 2> /dev/null
 cd zigenity
 ../$zig build -Doptimize=ReleaseSmall
-cp zig-out/bin/zigenity /usr/local/bin/zigenity
+cp zig-out/bin/zigenity /usr/bin/zigenity
 
-echo "zigenity installed into /usr/local/bin/"
+echo "zigenity installed into /usr/bin/"
 
 cd ~/
 

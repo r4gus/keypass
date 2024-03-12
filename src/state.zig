@@ -73,7 +73,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             .argv = &.{
                 "zigenity",
                 "--password",
-                "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+                "--window-icon=/usr/share/passkeez/passkeez.png",
                 "--title=PassKeeZ: Unlock Database",
                 "--ok-label=Unlock",
                 "--timeout=60",
@@ -98,8 +98,8 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                         .argv = &.{
                             "zigenity",
                             "--question",
-                            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
-                            "--icon=/usr/local/bin/passkeez/passkeez-error.png",
+                            "--window-icon=/usr/share/passkeez/passkeez.png",
+                            "--icon=/usr/share/passkeez/passkeez-error.png",
                             "--text=Credential database decryption failed",
                             "--title=PassKeeZ: Wrong Password",
                             "--ok-label=Ok",
@@ -130,8 +130,8 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             .argv = &.{
                 "zigenity",
                 "--question",
-                "--window-icon=/usr/local/bin/passkeez/passkeez.png",
-                "--icon=/usr/local/bin/passkeez/passkeez-error.png",
+                "--window-icon=/usr/share/passkeez/passkeez.png",
+                "--icon=/usr/share/passkeez/passkeez-error.png",
                 "--text=Too many incorrect password attempts",
                 "--title=PassKeeZ: Authentication failed",
                 "--ok-label=Ok",
@@ -202,8 +202,8 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
         .argv = &.{
             "zigenity",
             "--question",
-            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
-            "--icon=/usr/local/bin/passkeez/passkeez-question.png",
+            "--window-icon=/usr/share/passkeez/passkeez.png",
+            "--icon=/usr/share/passkeez/passkeez-question.png",
             "--title=PassKeeZ: No Database",
             "--text=Do you want to create a new passkey database?",
         },
@@ -224,7 +224,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
             .argv = &.{
                 "zigenity",
                 "--password",
-                "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+                "--window-icon=/usr/share/passkeez/passkeez.png",
                 "--title=PassKeeZ: New Database",
                 "--text=Please choose a password",
                 "--ok-label=Create",
@@ -247,8 +247,8 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                         .argv = &.{
                             "zigenity",
                             "--question",
-                            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
-                            "--icon=/usr/local/bin/passkeez/passkeez-error.png",
+                            "--window-icon=/usr/share/passkeez/passkeez.png",
+                            "--icon=/usr/share/passkeez/passkeez-error.png",
                             "--text=Password must be 8 characters long",
                             "--title=PassKeeZ: Error",
                             "--timeout=15",
@@ -286,8 +286,8 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                     .argv = &.{
                         "zigenity",
                         "--question",
-                        "--window-icon=/usr/local/bin/passkeez/passkeez.png",
-                        "--icon=/usr/local/bin/passkeez/passkeez-ok.png",
+                        "--window-icon=/usr/share/passkeez/passkeez.png",
+                        "--icon=/usr/share/passkeez/passkeez-ok.png",
                         "--text=Database successfully create",
                         "--title=PassKeeZ: Success",
                         "--timeout=15",

@@ -204,8 +204,8 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
         .argv = &.{
             "zigenity",
             "--question",
-            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
-            "--icon=/usr/local/bin/passkeez/passkeez-question.png",
+            "--window-icon=/usr/share/passkeez/passkeez.png",
+            "--icon=/usr/share/passkeez/passkeez-question.png",
             "--text=Do you want to use PassKeeZ as your authenticator?",
             "--title=Authenticator Selection",
             "--timeout=15",
