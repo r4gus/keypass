@@ -74,10 +74,12 @@ cd ~/
 # This is where all configuration files will live
 if [ ! -d /home/${SUDO_USER}/.passkeez ]; then
     sudo -E -u $SUDO_USER mkdir /home/${SUDO_USER}/.passkeez
+    sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez
 fi
 
 if [ ! -e /home/${SUDO_USER}/.passkeez/config.json ]; then 
     echo '{"db_path":"~/.passkeez/db.trs"}' > /home/${SUDO_USER}/.passkeez/config.json
+    sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez/config.json
 fi
 
 ##############################################
