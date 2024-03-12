@@ -58,12 +58,27 @@ fi
 #desktop-file-install --dir="/home/$SUDO_USER/.local/share/applications" linux/passkeez.desktop
 #update-desktop-database "/home/$SUDO_USER/.local/share/applications"
 
-cd ~/
-
 echo "PassKeeZ installed into /usr/local/bin/passkeez/"
 
+# Install zigenity
+cd /tmp
+git clone https://github.com/r4gus/zigenity --branch 0.1.3 2> /dev/null
+cd zigenity
+../$zig build -Doptimize=ReleaseSmall
+cp zig-out/bin/zigenity /usr/local/bin/zigenity
+
+echo "zigenity installed into /usr/local/bin/"
+
+cd ~/
+
 # This is where all configuration files will live
-sudo -E -u $SUDO_USER mkdir /home/${SUDO_USER}/.passkeez
+if [ ! -d /home/${SUDO_USER}/.passkeez ]; then
+    sudo -E -u $SUDO_USER mkdir /home/${SUDO_USER}/.passkeez
+fi
+
+if [ ! -e /home/${SUDO_USER}/.passkeez/config.json ]; then 
+    echo '{"db_path":"~/.passkeez/db.trs"}' > /home/${SUDO_USER}/.passkeez/config.json
+fi
 
 ##############################################
 #               Postinst                     #
@@ -78,13 +93,13 @@ getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
 # Add uhid to the list of modules to load during boot
 echo "uhid" > /etc/modules-load.d/fido.conf 
 
-if ! command -v zenity &> /dev/null
-then
-    echo "${RED}zenity seems to be missing... please install!${NC}"
-fi
+#if ! command -v zenity &> /dev/null
+#then
+#    echo "${RED}zenity seems to be missing... please install!${NC}"
+#fi
 
 echo "${GREEN}PassKeeZ installed successfully.${NC}"
-echo "To enable PassKeeZ run the following commands:"
+echo "To enable PassKeeZ permanently run the following commands:"
 echo "    systemctl --user enable passkeez.service"
 echo "    systemctl --user start passkeez.service"
 echo "For further details visit https://github.com/r4gus/keypass"
