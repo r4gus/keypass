@@ -1,0 +1,1 @@
+KERNEL=="uhid", GROUP="fido", MODE="0660"

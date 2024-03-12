@@ -1,0 +1,43 @@
+name: passkeez
+version: "0.3.0"
+summary: FIDO2/ Passkey compatible authenticator for Linux
+description: |
+  TODO
+
+base: core22
+confinement: devmode
+
+parts:
+  passkeez:
+    plugin: nil
+    source: .
+    after: [build-deps]
+    build-packages:
+      - curl
+      - libgtk-3-0
+    override-build: |
+      # Fetching the Zig compiler
+      curl -o "zig.tar.xz" https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
+      tar -xf zig.tar.xz
+      sub=$(ls | grep "zig-")
+      zig="$sub/zig"
+      # Building the executable
+      zig build -Doptimize=ReleaseSmall
+    install:
+      - install -D -m755 ./zig-out/bin/passkeez $SNAPCRAFT_PART_INSTALL/usr/bin/passkeez
+  udev-rules:
+    plugin: dump
+    source: ./script
+    organize:
+      "script/90-uinput.rules": "etc/udev/rules.d/90-uinput.rules"
+
+plugs:
+  uhid-control:
+    interface: uhid
+    device:
+      path: /dev/uhid
+
+# https://snapcraft.io/docs/c-c-applications
+apps:
+  passkeez:
+    command: bin/passkeez
