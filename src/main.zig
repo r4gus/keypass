@@ -202,9 +202,10 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
     const r = std.ChildProcess.exec(.{
         .allocator = allocator,
         .argv = &.{
-            "zenity",
+            "zigenity",
             "--question",
-            "--icon=/usr/local/bin/passkeez/passkeez.png",
+            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+            "--icon=/usr/local/bin/passkeez/passkeez-question.png",
             "--text=Do you want to use PassKeeZ as your authenticator?",
             "--title=Authenticator Selection",
             "--timeout=15",
@@ -266,11 +267,11 @@ pub fn my_up(
     rp: [*c]const u8,
 ) callconv(.C) UpResult {
     _ = user;
+    _ = info;
 
     if (State.up_result) |r| return r;
 
-    const text = std.fmt.allocPrint(allocator, "--text={s} for {s}?", .{
-        if (info != null) info[0..strlen(info)] else "Login",
+    const text = std.fmt.allocPrint(allocator, "--text=Do you want to log in to {s}?", .{
         if (rp != null) rp[0..strlen(rp)] else "website",
     }) catch {
         std.log.err("up: unable to allocate memory for text", .{});
@@ -281,12 +282,13 @@ pub fn my_up(
     const r = std.ChildProcess.exec(.{
         .allocator = allocator,
         .argv = &.{
-            "zenity",
+            "zigenity",
             "--question",
+            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
             "--icon=/usr/local/bin/passkeez/passkeez-question.png",
             text,
-            "--title=Authentication Request",
-            "--timeout=15",
+            "--title=PassKeeZ: Authentication Request",
+            "--timeout=30",
         },
     }) catch {
         std.log.err("up: unable to create up dialog", .{});

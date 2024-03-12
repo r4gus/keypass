@@ -71,10 +71,11 @@ pub fn authenticate(a: std.mem.Allocator) !void {
         var password: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
             .allocator = a,
             .argv = &.{
-                "zenity",
+                "zigenity",
                 "--password",
-                "--title=Unlock credential database",
-                "--ok-label=unlock",
+                "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+                "--title=PassKeeZ: Unlock Database",
+                "--ok-label=Unlock",
                 "--timeout=60",
             },
         });
@@ -94,7 +95,15 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                     std.log.err("unable to decrypt database {s} ({any})", .{ conf.db_path, e });
                     const r = try std.ChildProcess.exec(.{
                         .allocator = a,
-                        .argv = &.{ "zenity", "--warning", "--text=Wrong password" },
+                        .argv = &.{
+                            "zigenity",
+                            "--question",
+                            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+                            "--icon=/usr/local/bin/passkeez/passkeez-error.png",
+                            "--text=Credential database decryption failed",
+                            "--title=PassKeeZ: Wrong Password",
+                            "--timeout=15",
+                        },
                     });
                     defer {
                         a.free(r.stdout);
@@ -116,7 +125,15 @@ pub fn authenticate(a: std.mem.Allocator) !void {
     } else {
         const r = try std.ChildProcess.exec(.{
             .allocator = a,
-            .argv = &.{ "zenity", "--error", "--text=Authentication failed" },
+            .argv = &.{
+                "zigenity",
+                "--question",
+                "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+                "--icon=/usr/local/bin/passkeez/passkeez-error.png",
+                "--text=Too many incorrect password attempts",
+                "--title=PassKeeZ: Authentication failed",
+                "--timeout=15",
+            },
         });
         defer {
             a.free(r.stdout);
@@ -179,10 +196,11 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
     var r1: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
         .allocator = a,
         .argv = &.{
-            "zenity",
+            "zigenity",
             "--question",
-            "--icon=/usr/local/bin/passkeez/passkeez.png",
-            "--title=PassKeeZ: No database found",
+            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+            "--icon=/usr/local/bin/passkeez/passkeez-question.png",
+            "--title=PassKeeZ: No Database",
             "--text=Do you want to create a new passkey database?",
         },
     });
@@ -200,13 +218,13 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
         var r2: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
             .allocator = a,
             .argv = &.{
-                "zenity",
-                "--forms",
+                "zigenity",
+                "--password",
+                "--window-icon=/usr/local/bin/passkeez/passkeez.png",
                 "--title=PassKeeZ: New Database",
-                "--text=Please choose a password (numbers, characters, symbols, NO \'|\'!)",
-                "--add-password=Password",
-                "--add-password=Repeat Password",
-                "--ok-label=create",
+                "--text=Please choose a password",
+                "--ok-label=Create",
+                "--cancel-label=Cancel",
             },
         });
         defer {
@@ -217,19 +235,21 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
         switch (r2.term.Exited) {
             0 => {
                 std.log.info("{s}", .{r2.stdout});
-                var iter = std.mem.split(u8, r2.stdout[0 .. r2.stdout.len - 1], "|");
-                const pw1 = iter.next();
-                const pw2 = iter.next();
-                std.log.info("{any}, {any}", .{ pw1, pw2 });
+                const pw1 = r2.stdout[0 .. r2.stdout.len - 1];
 
-                if (pw1 == null or pw2 == null or !std.mem.eql(u8, pw1.?, pw2.?)) {
+                if (pw1.len < 8) {
                     const r = try std.ChildProcess.exec(.{
                         .allocator = a,
                         .argv = &.{
-                            "zenity",
-                            "--error",
+                            "zigenity",
+                            "--question",
+                            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
                             "--icon=/usr/local/bin/passkeez/passkeez-error.png",
-                            "--text=Passwords do not match",
+                            "--text=Password must be 8 characters long",
+                            "--title=PassKeeZ: Error",
+                            "--timeout=15",
+                            "--switch-cancel",
+                            "--ok-label=Ok",
                         },
                     });
                     defer {
@@ -255,15 +275,20 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                     std.time.milliTimestamp,
                 );
                 defer store.deinit();
-                try store.seal(f_db.writer(), pw1.?);
+                try store.seal(f_db.writer(), pw1);
 
                 const r = try std.ChildProcess.exec(.{
                     .allocator = a,
                     .argv = &.{
-                        "zenity",
-                        "--info",
+                        "zigenity",
+                        "--question",
+                        "--window-icon=/usr/local/bin/passkeez/passkeez.png",
                         "--icon=/usr/local/bin/passkeez/passkeez-ok.png",
                         "--text=Database successfully create",
+                        "--title=PassKeeZ: Success",
+                        "--timeout=15",
+                        "--switch-cancel",
+                        "--ok-label=Ok",
                     },
                 });
                 defer {
