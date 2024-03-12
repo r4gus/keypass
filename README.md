@@ -44,6 +44,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/scr
 > * `curl`
 > * `git`
 > * `libgtk-3-0`
+>
 > In the future, we will also provide packages (e.g., for Debian) but for now you have
 > to use the install script.
 
