@@ -2,7 +2,7 @@
 
 A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://github.com/r4gus/keylib).
 
-![application slide-show](static/out.gif)
+The project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
 
 | Browser | Supported? | Tested version| Notes |
 |:-------:|:----------:|:-------------:|:-----:|
@@ -11,16 +11,23 @@ A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://gi
 | Firefox | &#9989; | 122.0 (64-bit) |  |
 | Opera | &#9989; | version: 105.0.4970.16 chromium: 119.0.6045.159 | |
 
-> INFO: All tests were conducted using passkey for Github.
+> [!NOTE]
+> All tests were conducted using passkey for Github.
 
-> NOTE: Browsers running in sandboxed environments might not be able to communicate with the authenticator out of the box (e.g. when installing browsers with the Ubuntu App Center).
+> [!IMPORTANT]
+> Browsers running in sandboxed environments might not be able to communicate with the authenticator out of the box (e.g. when installing browsers with the Ubuntu App Center).
 
 ## Features
 
 * Works with all services that support Passkeys
 * Store your Passkeys (just a private key + related data) in a local, encrypted database
 * Constant sign-counter, i.e. you can safely sync your credentials/passkeys between devices.
-* Manage your Passkeys directly in the App (WIP)
+
+> [!NOTE]
+> The release of version 0.3.0 removed the GUI. This means that you need version 0.2.5 if
+> you want to delete credentials. A upcoming update will add credential management, which
+> should also allow to modify credentials using a tool like `fido2-token`. The overall goal
+> is to write a dedicated tool that allows the configuration of PassKeeZ via official commands.
 
 ## Install
 
@@ -29,36 +36,29 @@ This project is installed by running the following command in your terminal.
 ### Stable
 
 ```
-sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install.sh)"
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/script/install.sh)"
 ```
 
-> The current project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
+> [!NOTE]
+> The following dependencies are required:
+> * `curl`
+> * `git`
+> * `libgtk-3-0`
+> In the future, we will also provide packages (e.g., for Debian) but for now you have
+> to use the install script.
 
-### 0.3.x Beta
+The script will make the following modifications:
+* `PassKeeZ` is installed to `/usr/local/bin`
+* `zigenity` (used for the user interface) is installed to `/usr/local/bin`
+* The user is added to the `fido` group
+* A udev rule is copied to `/etc/udev/rules.d/90-uinput.rules`
+* The `uhid` module is added to `/etc/modules-load.d/fido.conf`
 
-I'm currently working on a new version with enhanced UX, including:
-
-* The authenticator runs as a background process (i.e. you don't have to manually open the application anymore)
-* User interaction via [zenity](https://gitlab.gnome.org/GNOME/zenity)
-
-> NOTE: You require zenity `>= 4`
+### Old Release
 
 ```
-sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/script/install-0.3.0-beta.sh)"
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install-0.2.5.sh)"
 ```
-
-Installing the application via the `install-0.3.0-beta.sh` will replace the `passkeez` binary! Make sure you backup
-your files, especially your database file! Expect the version to be unstable!
-
-### Manual installation
-
-* First you need a [Zig 0.11.0 compiler](https://ziglang.org/download/).
-* Also, the project uses [zenity](https://wiki.gnome.org/Projects/Zenity) as file browser. You might need to install it if your distro doesn't come with GTK natively. If zenity is not available, you have to enter file paths manually.
-* Clone the project with `git clone https://github.com/r4gus/keypass`
-* Build the project with `zig build run -Doptimize=ReleaseSmall`
-* After successful compilation you can find the binary in `zig-out/bin/`
-* Execute the script `script/postints.sh` using bash. This will create a new group `fido` and add the current user to the group. The script also enables the `uhid` module and adds a rule that allows users of the group `fido` to access `/dev/uhid` without root privileges.
-* Finally, restart you Pc.
 
 ### File synchronization
 
@@ -123,9 +123,3 @@ Please read the QA of the [keylib](https://github.com/r4gus/keylib) project.
   </tr>
 </table>
 
-## Dependencies
-
-* [keylib](https://github.com/r4gus/keylib)
-* [zbor](https://github.com/r4gus/zbor)
-* [tresor](https://github.com/r4gus/tresor)
-* [dvui](https://github.com/david-vanderson/dvui)
