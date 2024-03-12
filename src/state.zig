@@ -102,6 +102,8 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                             "--icon=/usr/local/bin/passkeez/passkeez-error.png",
                             "--text=Credential database decryption failed",
                             "--title=PassKeeZ: Wrong Password",
+                            "--ok-label=Ok",
+                            "--switch-cancel",
                             "--timeout=15",
                         },
                     });
@@ -132,6 +134,8 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                 "--icon=/usr/local/bin/passkeez/passkeez-error.png",
                 "--text=Too many incorrect password attempts",
                 "--title=PassKeeZ: Authentication failed",
+                "--ok-label=Ok",
+                "--switch-cancel",
                 "--timeout=15",
             },
         });
