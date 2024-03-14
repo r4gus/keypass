@@ -1,107 +1,203 @@
 #!/bin/bash
 
+PASSKEEZ_VERSION=dev
+ZIGENITY_VERSION="0.1.3"
+
 RED='\033[0;31m'
-GREEN='\e[0;32m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+debian_dependencies=(
+    curl
+    git
+    libgtk-3-0
+)
+
+function get_package_manager {
+    declare -A osInfo;
+    osInfo[/etc/redhat-release]=yum
+    osInfo[/etc/arch-release]=pacman
+    osInfo[/etc/gentoo-release]=emerge
+    osInfo[/etc/SuSE-release]=zypp
+    osInfo[/etc/debian_version]=apt-get
+    osInfo[/etc/alpine-release]=apk
+
+    for f in ${!osInfo[@]}
+    do
+        if [[ -f $f ]];then
+            echo ${osInfo[$f]}
+            break
+        fi
+    done
+}
+
+function download_zig {
+    cd /tmp
+    rm -rf zig*
+
+    path=""
+    case $1 in
+        i386) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
+        i686) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
+        x86_64) path="https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz" ;;
+        *) 
+            echo -e "${RED}Unsupported architecture $1. Exiting...${NC}"
+            exit 1
+            ;;
+    esac
+
+    zig="zig"
+    if [ "$path" != "" ]; then
+        curl -# -C - -o "zig.tar.xz" "$path"    
+        tar -xf "zig.tar.xz"
+        sub=$(ls | grep "zig-")
+        zig="$sub/zig"
+    fi
+    echo ${zig}
+}
+
+# Verify that all dependencies are met
+function check_dependencies {
+    case $1 in
+        apt-get) 
+            for i in "${debian_dependencies[@]}"; do
+                if ! command -v "$i" &> /dev/null
+                then
+                    apt-get install "$i" &> /dev/null
+                fi
+            done
+            echo 0
+            ;;
+        *)
+            echo "${RED}Unknown package manager $1${NC}" 
+            echo "Please make sure that the following dependencies are met:"
+            echo "    * curl"
+            echo "    * git"
+            echo "    * gtk3"
+            echo 1
+            ;;
+    esac
+}
+
+function install_passkeez {
+    cd /tmp
+    rm -rf keypass
+    
+    # Install the application
+    git clone https://github.com/r4gus/keypass --branch $1 &> /dev/null
+    cd keypass
+    ../$2 build -Doptimize=ReleaseSmall &> /dev/null
+    cp zig-out/bin/passkeez /usr/bin/passkeez
+    
+    # Install the static files 
+    mkdir -p /usr/share/passkeez
+    cp src/static/*.png /usr/share/passkeez/
+
+    # So we can do the following
+    # systemctl --user enable passkeez.service
+    # systemctl --user start passkeez.service
+    # systemctl --user stop passkeez.service
+    # systemctl --user status passkeez.service
+    cp script/passkeez.service /etc/systemd/user/passkeez.service
+    
+    # This is to remove the legacy desktop file
+    if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
+        rm "/home/$SUDO_USER/.local/share/applications/passkeez.desktop"
+    fi
+}
+
+function install_zigenity {
+    cd /tmp
+    rm -rf zigenity
+
+    git clone https://github.com/r4gus/zigenity --branch $1 &> /dev/null
+    cd zigenity
+    ../$2 build -Doptimize=ReleaseSmall
+    cp zig-out/bin/zigenity /usr/bin/zigenity
+}
+
+function check_config_folder {
+    # This is where all configuration files will live
+    if [ ! -d /home/${SUDO_USER}/.passkeez ]; then
+        sudo -E -u $SUDO_USER mkdir /home/${SUDO_USER}/.passkeez
+        sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez
+    fi
+
+    if [ ! -e /home/${SUDO_USER}/.passkeez/config.json ]; then 
+        echo '{"db_path":"~/.passkeez/db.trs"}' > /home/${SUDO_USER}/.passkeez/config.json
+        sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez/config.json
+    fi
+}
+
+function postinst {
+    # Create a udev rule that allows all users that belong to the group fido to access /dev/uhid
+    echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.rules
+
+    # Create a new group called fido
+    getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
+
+    # Add uhid to the list of modules to load during boot
+    echo "uhid" > /etc/modules-load.d/fido.conf 
+}
 
 # Exit immediately if any command returns a non-zero exit status
 set -e
 
+echo '______              _   __           ______'
+echo '| ___ \            | | / /          |___  /'
+echo '| |_/ /_ _ ___ ___ | |/ /  ___  ___    / /'
+echo '|  __/ _` / __/ __||    \ / _ \/ _ \  / /'
+echo '| | | (_| \__ \__ \| |\  \  __/  __/./ /___'
+echo '\_|  \__,_|___/___/\_| \_/\___|\___|\_____/'
+echo ""
+echo -e "${GREEN}PassKeeZ Installer${NC}"
+echo "------------------"
+
 if [ ! `id -u` = 0 ]; then
-    echo "please run script with sudo"
+    echo -e "${YELLOW}please run script with sudo${NC}"
     exit 1
 fi
 
-cd /tmp
-rm -rf zig* keypass
+# First we make sure that all dependencies are met
+ARCH=$(uname -m)
+PKG=$(get_package_manager)
 
-path=""
-case $(uname -m) in
-    i386) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
-    i686) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
-    x86_64) path="https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz" ;;
-esac
+echo "Architecture:    ${ARCH}"
+echo "Package manager: ${PKG}"
 
-zig="zig"
-if [ "$path" != "" ]; then
-    echo "Downloading Zig 0.11.0..."
-    curl -# -C - -o "zig.tar.xz" "$path"    
-    tar -xf "zig.tar.xz"
-    sub=$(ls | grep "zig-")
-    zig="$sub/zig"
+echo -n "Checking dependencies... "
+if [ $(check_dependencies $PKG) -ne 0 ]; then
+    echo -e "${RED}Fail${NC}"
+else
+    echo -e "${GREEN}OK${NC}"
 fi
 
-git clone https://github.com/r4gus/keypass --branch dev
-cd keypass
-../$zig build -Doptimize=ReleaseSmall
-cp zig-out/bin/passkeez /usr/bin/passkeez
+echo "Downloading Zig..."
+zig=$(download_zig $ARCH)
 
-mkdir -p /usr/share/passkeez
-cp src/static/passkeez.png /usr/share/passkeez/passkeez.png
-cp src/static/passkeez-ok.png /usr/share/passkeez/passkeez-ok.png
-cp src/static/passkeez-error.png /usr/share/passkeez/passkeez-error.png
-cp src/static/passkeez-question.png /usr/share/passkeez/passkeez-question.png
+echo -n "Installing PassKeeZ... "
+install_passkeez $PASSKEEZ_VERSION $zig
+echo -e "${GREEN}OK${NC}"
 
-# So we can do the following
-# systemctl --user enable passkeez.service
-# systemctl --user start passkeez.service
-# systemctl --user stop passkeez.service
-# systemctl --user status passkeez.service
-cp script/passkeez.service /etc/systemd/user/passkeez.service
+echo -n "Installing zigenity... "
+install_zigenity $ZIGENITY_VERSION $zig
+echo -e "${GREEN}OK${NC}"
 
-if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
-    echo "Removing old .desktop file..."
-    rm "/home/$SUDO_USER/.local/share/applications/passkeez.desktop"
-fi
+echo -n "Checking configuration folder... "
+check_config_folder
+echo -e "${GREEN}OK${NC}"
 
-echo "PassKeeZ installed into /usr/bin/passkeez/"
+echo -n "Configuring... "
+postinst
+echo -e "${GREEN}OK${NC}"
 
-# Install zigenity
-cd /tmp
-git clone https://github.com/r4gus/zigenity --branch 0.1.3 2> /dev/null
-cd zigenity
-../$zig build -Doptimize=ReleaseSmall
-cp zig-out/bin/zigenity /usr/bin/zigenity
-
-echo "zigenity installed into /usr/bin/"
-
-cd ~/
-
-# This is where all configuration files will live
-if [ ! -d /home/${SUDO_USER}/.passkeez ]; then
-    sudo -E -u $SUDO_USER mkdir /home/${SUDO_USER}/.passkeez
-    sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez
-fi
-
-if [ ! -e /home/${SUDO_USER}/.passkeez/config.json ]; then 
-    echo '{"db_path":"~/.passkeez/db.trs"}' > /home/${SUDO_USER}/.passkeez/config.json
-    sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez/config.json
-fi
-
-##############################################
-#               Postinst                     #
-##############################################
-
-# Create a udev rule that allows all users that belong to the group fido to access /dev/uhid
-echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.rules
-
-# Create a new group called fido
-getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
-
-# Add uhid to the list of modules to load during boot
-echo "uhid" > /etc/modules-load.d/fido.conf 
-
-#if ! command -v zenity &> /dev/null
-#then
-#    echo "${RED}zenity seems to be missing... please install!${NC}"
-#fi
-
-echo "${GREEN}PassKeeZ installed successfully.${NC}"
+echo -e "${GREEN}PassKeeZ installed successfully.${NC}"
 echo "To enable PassKeeZ permanently run the following commands:"
-echo "    systemctl --user enable passkeez.service"
-echo "    systemctl --user start passkeez.service"
+echo -e "    ${YELLOW}systemctl --user enable passkeez.service${NC}"
+echo -e "    ${YELLOW}systemctl --user start passkeez.service${NC}"
 echo "For further details visit https://github.com/r4gus/keypass"
-echo "Please reboot..."
+echo -e "${YELLOW}If this is the first time running this script, please reboot...${NC}"
 
 # Exit successfully
 exit 0
