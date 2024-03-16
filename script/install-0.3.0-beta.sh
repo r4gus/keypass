@@ -101,7 +101,7 @@ function install_passkeez {
     # systemctl --user status passkeez.service
     #cp script/passkeez.service /etc/systemd/user/passkeez.service
     mkdir -p /home/${SUDO_USER}/.local/share/systemd/user
-    cp script/passkeez.service /etc/systemd/user/passkeez.service
+    cp script/passkeez.service /home/${SUDO_USER}/.local/share/systemd/user/passkeez.service
     
     # This is to remove the legacy desktop file
     if [ -f "/home/$SUDO_USER/.local/share/applications/passkeez.desktop" ]; then
