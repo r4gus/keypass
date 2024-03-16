@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
+ExecStartPre=/bin/sleep 5
 ExecStart=passkeez
 Restart=always
 RestartSec=3
