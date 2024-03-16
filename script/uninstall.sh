@@ -7,8 +7,12 @@ if [ ! `id -u` = 0 ]; then
 fi
 
 rm -rf /usr/local/bin/passkeez
+rm -rf /usr/bin/passkeez
+
+rm -rf /usr/local/bin/zigenity
+rm -rf /usr/bin/zigenity
+
 rm /etc/systemd/user/passkeez.service
-rm -rf /home/${SUDO_USER}/.passkeez
 rm /etc/udev/rules.d/90-uinput.rules
 
 echo "PassKeeZ successfully uninstalled"

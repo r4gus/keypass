@@ -97,7 +97,10 @@ pub fn main() !void {
 
     // We use the uhid module on linux to simulate a USB device. If you use
     // tinyusb or something similar you have to adapt the code.
-    var u = try uhid.Uhid.open();
+    var u = uhid.Uhid.open() catch |e| {
+        std.log.err("unable to open uhid device ({any})", .{e});
+        return e;
+    };
     defer u.close();
 
     // This is the main loop
@@ -129,8 +132,8 @@ pub fn main() !void {
                 }
 
                 if (!skip) {
-                    State.authenticate(allocator) catch {
-                        std.log.err("authentication failed", .{});
+                    State.authenticate(allocator) catch |e| {
+                        std.log.err("authentication failed ({any})", .{e});
                         res._data[0] = 0x3f;
                         res.len = 1;
                         skip = true;
@@ -159,7 +162,8 @@ pub fn main() !void {
                 var iter = res.iterator();
                 // Here we iterate over the response packets of our authenticator.
                 while (iter.next()) |p| {
-                    u.write(p) catch {
+                    u.write(p) catch |e| {
+                        std.log.err("unable to write usb packet ({any})", .{e});
                         break :blk;
                     };
                 }
@@ -210,8 +214,8 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
             "--title=Authenticator Selection",
             "--timeout=15",
         },
-    }) catch {
-        std.log.err("select: unable to create select dialog", .{});
+    }) catch |e| {
+        std.log.err("select: unable to create select dialog ({any})", .{e});
         return .ctap2_err_operation_denied;
     };
     defer {
@@ -273,8 +277,8 @@ pub fn my_up(
 
     const text = std.fmt.allocPrint(allocator, "--text=Do you want to log in to {s}?", .{
         if (rp != null) rp[0..strlen(rp)] else "website",
-    }) catch {
-        std.log.err("up: unable to allocate memory for text", .{});
+    }) catch |e| {
+        std.log.err("up: unable to allocate memory for text ({any})", .{e});
         return UpResult.Denied;
     };
     defer allocator.free(text);
@@ -290,8 +294,8 @@ pub fn my_up(
             "--title=PassKeeZ: Authentication Request",
             "--timeout=30",
         },
-    }) catch {
-        std.log.err("up: unable to create up dialog", .{});
+    }) catch |e| {
+        std.log.err("up: unable to create up dialog ({any})", .{e});
         return UpResult.Denied;
     };
     defer {

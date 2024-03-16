@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/passkeez
+ExecStart=passkeez
 Restart=always
 RestartSec=3
 

@@ -32,10 +32,16 @@ const tout1: i64 = 10; // seconds
 const tout2: i64 = 60; // seconds
 
 pub fn init(a: std.mem.Allocator) !void {
-    conf = db.Config.load(a) catch blk: {
-        std.log.info("No configuration file found in `~/.keypass`", .{});
-        try db.Config.create(a);
-        var conf_ = try db.Config.load(a);
+    conf = db.Config.load(a) catch |e| blk: {
+        std.log.err("unable to load configuration file ({any})", .{e});
+        db.Config.create(a) catch |e2| {
+            std.log.err("unable to create configuration file ({any})", .{e2});
+            return e2;
+        };
+        var conf_ = db.Config.load(a) catch |e2| {
+            std.log.err("unable to load configuration file after new database creation ({any})", .{e2});
+            return e2;
+        };
         std.log.info("Configuration file created", .{});
         break :blk conf_;
     };
@@ -59,16 +65,18 @@ pub fn authenticate(a: std.mem.Allocator) !void {
 
     var i: usize = 3;
 
-    const f = db.openFile(conf.db_path) catch blk: {
-        break :blk createDialog(a) catch |e| {
-            std.log.err("db creation failed ({any})", .{e});
-            return e;
+    const f = db.openFile(conf.db_path) catch |e1| blk: {
+        std.log.warn("unable to open database ({any})", .{e1});
+
+        break :blk createDialog(a) catch |e2| {
+            std.log.err("db creation failed ({any})", .{e2});
+            return e2;
         };
     };
     f.close();
 
     outer: while (i > 0) : (i -= 1) {
-        var password: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
+        var password: std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -78,7 +86,10 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                 "--ok-label=Unlock",
                 "--timeout=60",
             },
-        });
+        }) catch |e| {
+            std.log.err("unable to execute zigenity ({any})", .{e});
+            return e;
+        };
         defer {
             a.free(password.stdout);
             a.free(password.stderr);
@@ -93,7 +104,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                     a,
                 ) catch |e| {
                     std.log.err("unable to decrypt database {s} ({any})", .{ conf.db_path, e });
-                    const r = try std.ChildProcess.exec(.{
+                    const r = std.ChildProcess.exec(.{
                         .allocator = a,
                         .argv = &.{
                             "zigenity",
@@ -106,7 +117,10 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                             "--switch-cancel",
                             "--timeout=15",
                         },
-                    });
+                    }) catch |e2| {
+                        std.log.err("unable to execute zigenity ({any})", .{e2});
+                        return e2;
+                    };
                     defer {
                         a.free(r.stdout);
                         a.free(r.stderr);
@@ -125,7 +139,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             },
         }
     } else {
-        const r = try std.ChildProcess.exec(.{
+        const r = std.ChildProcess.exec(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -138,7 +152,10 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                 "--switch-cancel",
                 "--timeout=15",
             },
-        });
+        }) catch |e| {
+            std.log.err("unable to execute zigenity ({any})", .{e});
+            return e;
+        };
         defer {
             a.free(r.stdout);
             a.free(r.stderr);
@@ -197,7 +214,7 @@ pub fn deinit(a: std.mem.Allocator) void {
 }
 
 fn createDialog(a: std.mem.Allocator) !std.fs.File {
-    var r1: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
+    var r1: std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
         .allocator = a,
         .argv = &.{
             "zigenity",
@@ -207,7 +224,11 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
             "--title=PassKeeZ: No Database",
             "--text=Do you want to create a new passkey database?",
         },
-    });
+    }) catch |e| {
+        std.log.err("unable to execute zigenity ({any})", .{e});
+        return e;
+    };
+
     defer {
         a.free(r1.stdout);
         a.free(r1.stderr);
@@ -219,7 +240,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
     }
 
     outer: while (true) {
-        var r2: std.ChildProcess.ExecResult = try std.ChildProcess.exec(.{
+        var r2: std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -230,7 +251,10 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 "--ok-label=Create",
                 "--cancel-label=Cancel",
             },
-        });
+        }) catch |e| {
+            std.log.err("unable to execute zigenity ({any})", .{e});
+            return e;
+        };
         defer {
             a.free(r2.stdout);
             a.free(r2.stderr);
@@ -242,7 +266,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 const pw1 = r2.stdout[0 .. r2.stdout.len - 1];
 
                 if (pw1.len < 8) {
-                    const r = try std.ChildProcess.exec(.{
+                    const r = std.ChildProcess.exec(.{
                         .allocator = a,
                         .argv = &.{
                             "zigenity",
@@ -255,7 +279,10 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                             "--switch-cancel",
                             "--ok-label=Ok",
                         },
-                    });
+                    }) catch |e| {
+                        std.log.err("unable to execute zigenity ({any})", .{e});
+                        return e;
+                    };
                     defer {
                         a.free(r.stdout);
                         a.free(r.stderr);
@@ -263,10 +290,13 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                     continue :outer;
                 }
 
-                const f_db = try db.createFile(conf.db_path);
+                const f_db = db.createFile(conf.db_path) catch |e| {
+                    std.log.err("unable to create new database file ({any})", .{e});
+                    return e;
+                };
                 errdefer f_db.close();
 
-                var store = try tresor.Tresor.new(
+                var store = tresor.Tresor.new(
                     1,
                     0,
                     .ChaCha20,
@@ -277,11 +307,17 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                     a,
                     std.crypto.random,
                     std.time.milliTimestamp,
-                );
+                ) catch |e| {
+                    std.log.err("unable to create database ({any})", .{e});
+                    return e;
+                };
                 defer store.deinit();
-                try store.seal(f_db.writer(), pw1);
+                store.seal(f_db.writer(), pw1) catch |e| {
+                    std.log.err("unable to seal database ({any})", .{e});
+                    return e;
+                };
 
-                const r = try std.ChildProcess.exec(.{
+                const r = std.ChildProcess.exec(.{
                     .allocator = a,
                     .argv = &.{
                         "zigenity",
@@ -294,7 +330,10 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                         "--switch-cancel",
                         "--ok-label=Ok",
                     },
-                });
+                }) catch |e| {
+                    std.log.err("unable to execute zigenity ({any})", .{e});
+                    return e;
+                };
                 defer {
                     a.free(r.stdout);
                     a.free(r.stderr);

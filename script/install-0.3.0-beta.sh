@@ -88,7 +88,7 @@ function install_passkeez {
     git clone https://github.com/r4gus/keypass --branch $1 &> /dev/null
     cd keypass
     ../$2 build -Doptimize=ReleaseSmall &> /dev/null
-    cp zig-out/bin/passkeez /usr/bin/passkeez
+    cp zig-out/bin/passkeez /usr/local/bin/passkeez
     
     # Install the static files 
     mkdir -p /usr/share/passkeez
@@ -99,6 +99,8 @@ function install_passkeez {
     # systemctl --user start passkeez.service
     # systemctl --user stop passkeez.service
     # systemctl --user status passkeez.service
+    #cp script/passkeez.service /etc/systemd/user/passkeez.service
+    mkdir -p /home/${SUDO_USER}/.local/share/systemd/user
     cp script/passkeez.service /etc/systemd/user/passkeez.service
     
     # This is to remove the legacy desktop file
@@ -114,7 +116,7 @@ function install_zigenity {
     git clone https://github.com/r4gus/zigenity --branch $1 &> /dev/null
     cd zigenity
     ../$2 build -Doptimize=ReleaseSmall
-    cp zig-out/bin/zigenity /usr/bin/zigenity
+    cp zig-out/bin/zigenity /usr/local/bin/zigenity
 }
 
 function check_config_folder {
@@ -131,14 +133,15 @@ function check_config_folder {
 }
 
 function postinst {
-    # Create a udev rule that allows all users that belong to the group fido to access /dev/uhid
-    echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.rules
-
     # Create a new group called fido
     getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
 
     # Add uhid to the list of modules to load during boot
     echo "uhid" > /etc/modules-load.d/fido.conf
+
+    # Create a udev rule that allows all users that belong to the group fido to access /dev/uhid
+    echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.rules
+    udevadm control --reload-rules && udevadm trigger
 }
 
 # Exit immediately if any command returns a non-zero exit status
