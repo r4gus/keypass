@@ -12,7 +12,8 @@ rm -rf /usr/bin/passkeez
 rm -rf /usr/local/bin/zigenity
 rm -rf /usr/bin/zigenity
 
-rm /etc/systemd/user/passkeez.service
-rm /etc/udev/rules.d/90-uinput.rules
+rm -rf /etc/systemd/user/passkeez.service
+rm -rf /home/${SUDO_USER}/.local/share/systemd/user/passkeez.service
+rm -rf /etc/udev/rules.d/90-uinput.rules
 
 echo "PassKeeZ successfully uninstalled"

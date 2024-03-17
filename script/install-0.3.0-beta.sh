@@ -12,6 +12,7 @@ debian_dependencies=(
     curl
     git
     libgtk-3-0
+    libgtk-3-dev
 )
 
 function get_package_manager {
