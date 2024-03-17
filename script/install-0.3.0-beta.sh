@@ -65,7 +65,7 @@ function check_dependencies {
             for i in "${debian_dependencies[@]}"; do
                 if ! command -v "$i" &> /dev/null
                 then
-                    apt-get install "$i" &> /dev/null
+                    apt-get install -y "$i" &> /dev/null
                 fi
             done
             echo 0
