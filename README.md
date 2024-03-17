@@ -41,14 +41,20 @@ I'm currently working on a new version with enhanced UX, including:
 * The authenticator runs as a background process (i.e. you don't have to manually open the application anymore)
 * User interaction via [zenity](https://gitlab.gnome.org/GNOME/zenity)
 
-> NOTE: You require zenity `>= 4`
-
 ```
-sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/script/install-0.3.0-beta.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/script/install-0.3.0-beta.sh)"
 ```
 
 Installing the application via the `install-0.3.0-beta.sh` will replace the `passkeez` binary! Make sure you backup
 your files, especially your database file! Expect the version to be unstable!
+
+To remove the old files you can run:
+
+```
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/dev/script/uninstall.sh)"
+```
+
+The new config directory is `~/.passkeez`. Please make sure to update the `config.json` to point to your database file, if you already have one.
 
 ### Manual installation
 
