@@ -35,26 +35,28 @@ function get_package_manager {
 
 function download_zig {
     cd /tmp
-    rm -rf zig*
+    sub=$(ls | grep "zig-")
 
-    path=""
-    case $1 in
-        i386) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
-        i686) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
-        x86_64) path="https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz" ;;
-        *) 
-            echo -e "${RED}Unsupported architecture $1. Exiting...${NC}"
-            exit 1
-            ;;
-    esac
+    if [ -z "$sub" ]; then
+        path=""
+        case $1 in
+            i386) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
+            i686) path="https://ziglang.org/download/0.11.0/zig-linux-x86-0.11.0.tar.xz" ;;
+            x86_64) path="https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz" ;;
+            *) 
+                echo -e "${RED}Unsupported architecture $1. Exiting...${NC}"
+                exit 1
+                ;;
+        esac
 
-    zig="zig"
-    if [ "$path" != "" ]; then
-        curl -# -C - -o "zig.tar.xz" "$path"    
-        tar -xf "zig.tar.xz"
-        sub=$(ls | grep "zig-")
-        zig="$sub/zig"
+        if [ "$path" != "" ]; then
+            curl -# -C - -o "zig.tar.xz" "$path"    
+            tar -xf "zig.tar.xz"
+            sub=$(ls | grep "zig-")
+        fi
     fi
+    
+    zig="$sub/zig"
     echo ${zig}
 }
 
@@ -65,10 +67,10 @@ function check_dependencies {
             for i in "${debian_dependencies[@]}"; do
                 if ! command -v "$i" &> /dev/null
                 then
-                    apt-get install -y "$i" &> /dev/null
+                    apt-get install -y "$i"
                 fi
             done
-            echo 0
+            echo -e "${GREEN}Ok${NC}"
             ;;
         *)
             echo "${RED}Unknown package manager $1${NC}" 
@@ -76,19 +78,19 @@ function check_dependencies {
             echo "    * curl"
             echo "    * git"
             echo "    * gtk3"
-            echo 1
             ;;
     esac
 }
 
 function install_passkeez {
     cd /tmp
-    rm -rf keypass
     
     # Install the application
-    git clone https://github.com/r4gus/keypass --branch $1 &> /dev/null
+    if [ ! -d "./keypass" ]; then
+        git clone https://github.com/r4gus/keypass --branch $1
+    fi
     cd keypass
-    ../$2 build -Doptimize=ReleaseSmall &> /dev/null
+    ../$2 build -Doptimize=ReleaseSmall
     cp zig-out/bin/passkeez /usr/local/bin/passkeez
     
     # Install the static files 
@@ -112,9 +114,11 @@ function install_passkeez {
 
 function install_zigenity {
     cd /tmp
-    rm -rf zigenity
 
-    git clone https://github.com/r4gus/zigenity --branch $1 &> /dev/null
+    if [ ! -d "./zigenity" ]; then
+        git clone https://github.com/r4gus/zigenity --branch $1
+    fi
+
     cd zigenity
     ../$2 build -Doptimize=ReleaseSmall
     cp zig-out/bin/zigenity /usr/local/bin/zigenity
@@ -171,11 +175,7 @@ echo "Architecture:    ${ARCH}"
 echo "Package manager: ${PKG}"
 
 echo -n "Checking dependencies... "
-if [ $(check_dependencies $PKG) -ne 0 ]; then
-    echo -e "${RED}Fail${NC}"
-else
-    echo -e "${GREEN}OK${NC}"
-fi
+check_dependencies $PKG
 
 echo "Downloading Zig..."
 zig=$(download_zig $ARCH)
