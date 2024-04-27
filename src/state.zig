@@ -38,7 +38,7 @@ pub fn init(a: std.mem.Allocator) !void {
             std.log.err("unable to create configuration file ({any})", .{e2});
             return e2;
         };
-        var conf_ = db.Config.load(a) catch |e2| {
+        const conf_ = db.Config.load(a) catch |e2| {
             std.log.err("unable to load configuration file after new database creation ({any})", .{e2});
             return e2;
         };
@@ -76,7 +76,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
     f.close();
 
     outer: while (i > 0) : (i -= 1) {
-        var password: std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
+        var password = std.ChildProcess.run(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -104,7 +104,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                     a,
                 ) catch |e| {
                     std.log.err("unable to decrypt database {s} ({any})", .{ conf.db_path, e });
-                    const r = std.ChildProcess.exec(.{
+                    const r = std.ChildProcess.run(.{
                         .allocator = a,
                         .argv = &.{
                             "zigenity",
@@ -139,7 +139,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             },
         }
     } else {
-        const r = std.ChildProcess.exec(.{
+        const r = std.ChildProcess.run(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -177,8 +177,9 @@ pub fn writeDb(gpa: std.mem.Allocator) !void {
     };
 
     if (conf.db_path[0] == '~' and conf.db_path[1] == '/') {
-        if (std.os.getenv("HOME")) |home| {
-            var path = std.fmt.allocPrint(gpa, "{s}/{s}", .{ home, conf.db_path[2..] }) catch |e| {
+        if (std.c.getenv("HOME")) |home| {
+            // TODO: check home
+            const path = std.fmt.allocPrint(gpa, "{s}/{s}", .{ home[0..std.zig.c_builtins.__builtin_strlen(home)], conf.db_path[2..] }) catch |e| {
                 std.log.err("out of memory", .{});
                 return e;
             };
@@ -214,7 +215,7 @@ pub fn deinit(a: std.mem.Allocator) void {
 }
 
 fn createDialog(a: std.mem.Allocator) !std.fs.File {
-    var r1: std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
+    const r1 = std.ChildProcess.run(.{
         .allocator = a,
         .argv = &.{
             "zigenity",
@@ -240,7 +241,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
     }
 
     outer: while (true) {
-        var r2: std.ChildProcess.ExecResult = std.ChildProcess.exec(.{
+        var r2 = std.ChildProcess.run(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -266,7 +267,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 const pw1 = r2.stdout[0 .. r2.stdout.len - 1];
 
                 if (pw1.len < 8) {
-                    const r = std.ChildProcess.exec(.{
+                    const r = std.ChildProcess.run(.{
                         .allocator = a,
                         .argv = &.{
                             "zigenity",
@@ -317,7 +318,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                     return e;
                 };
 
-                const r = std.ChildProcess.exec(.{
+                const r = std.ChildProcess.run(.{
                     .allocator = a,
                     .argv = &.{
                         "zigenity",

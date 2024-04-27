@@ -20,10 +20,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addModule("keylib", keylib_dep.module("keylib"));
-    exe.addModule("uhid", keylib_dep.module("uhid"));
-    exe.addModule("zbor", keylib_dep.module("zbor"));
-    exe.addModule("tresor", tresor_dep.module("tresor"));
+    exe.root_module.addImport("keylib", keylib_dep.module("keylib"));
+    exe.root_module.addImport("uhid", keylib_dep.module("uhid"));
+    exe.root_module.addImport("zbor", keylib_dep.module("zbor"));
+    exe.root_module.addImport("tresor", tresor_dep.module("tresor"));
     exe.linkLibC();
 
     b.installArtifact(exe);

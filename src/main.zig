@@ -13,7 +13,7 @@ var initialized = false;
 pub fn main() !void {
     State.init(allocator) catch |e| {
         std.log.err("Unable to initialize application ({any})", .{e});
-        return std.os.exit(1);
+        return std.c.exit(1);
     };
 
     // The Auth struct is the most important part of your authenticator. It defines
@@ -152,7 +152,7 @@ pub fn main() !void {
                         .cbor => {
                             var out: [7609]u8 = undefined;
                             const r = auth.handle(&out, res.getData());
-                            std.mem.copy(u8, res._data[0..r.len], r);
+                            @memcpy(res._data[0..r.len], r);
                             res.len = r.len;
                         },
                         else => {},
@@ -203,7 +203,7 @@ const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
 const Error = keylib.ctap.authenticator.callbacks.Error;
 
 pub fn authenticatorSelection() keylib.ctap.StatusCodes {
-    const r = std.ChildProcess.exec(.{
+    const r = std.ChildProcess.run(.{
         .allocator = allocator,
         .argv = &.{
             "zigenity",
@@ -283,7 +283,7 @@ pub fn my_up(
     };
     defer allocator.free(text);
 
-    const r = std.ChildProcess.exec(.{
+    const r = std.ChildProcess.run(.{
         .allocator = allocator,
         .argv = &.{
             "zigenity",
@@ -365,7 +365,7 @@ pub fn my_read(
         )) |entries| {
             for (entries) |*e| {
                 if (e.*.getField("Data", std.time.microTimestamp())) |data| {
-                    var d = allocator.dupeZ(u8, data) catch {
+                    const d = allocator.dupeZ(u8, data) catch {
                         std.log.err("out of memory", .{});
                         return Error.OutOfMemory;
                     };
@@ -381,7 +381,7 @@ pub fn my_read(
         }
 
         if (arr.items.len > 0) {
-            var x = arr.toOwnedSliceSentinel(null) catch {
+            const x = arr.toOwnedSliceSentinel(null) catch {
                 std.log.err("out of memory", .{});
                 arr.deinit();
                 return Error.OutOfMemory;

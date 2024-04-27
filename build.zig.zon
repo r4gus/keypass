@@ -1,18 +1,23 @@
 .{
     .name = "keypass",
-    .version = "0.2.5",
+    .version = "0.3.0",
     .dependencies = .{
         .keylib = .{
             .url = "https://github.com/r4gus/keylib/archive/master.tar.gz",
-            .hash = "1220019160bd9965a18bdc736f61fdeff10e5e8d67ae70ceff1e006901c9682c77d2",
+            .hash = "12203fc4ec5271588e46cf6f2cbc26b6da2f44c5364fad8bfb17ec279ab64e68e00e",
         },
         .tresor = .{
-            .url = "https://github.com/r4gus/tresor/archive/refs/tags/0.1.1.tar.gz",
-            .hash = "12207764da1293dc277b8942c93a9972ab93ba61d8949eaf96395fc84f61f8c0d760",
+            .url = "https://github.com/r4gus/tresor/archive/refs/tags/0.2.0.tar.gz",
+            .hash = "12205e7bad35978f6b2a939c692a7825ae25c578cf93e35e8c16a1e1858634b9d5e3",
         },
-        .dvui = .{
-            .url = "https://github.com/david-vanderson/dvui/archive/46dc2cbf54ccf87d58fb9d70fbd73ad1370cb903.tar.gz",
-            .hash = "1220e30b896597e843a23df3c15e9b126ed4a3d0fb042bfb7c85f7c10827bd6e66a7",
-        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon", 
+        "linux",
+        "README.md",
+        "script",
+        "src",
+        "static",
     },
 }
