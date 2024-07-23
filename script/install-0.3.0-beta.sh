@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PASSKEEZ_VERSION=dev
-ZIGENITY_VERSION="0.2.0"
+ZIGENITY_VERSION="0.3.0"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -40,9 +40,9 @@ function download_zig {
     if [ -z "$sub" ]; then
         path=""
         case $1 in
-            i386) path="https://ziglang.org/download/0.12.0/zig-linux-x86-0.12.0.tar.xz" ;;
-            i686) path="https://ziglang.org/download/0.12.0/zig-linux-x86-0.12.0.tar.xz" ;;
-            x86_64) path="https://ziglang.org/download/0.12.0/zig-linux-x86_64-0.12.0.tar.xz" ;;
+            i386) path="https://ziglang.org/download/0.13.0/zig-linux-x86-0.13.0.tar.xz" ;;
+            i686) path="https://ziglang.org/download/0.13.0/zig-linux-x86-0.13.0.tar.xz" ;;
+            x86_64) path="https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz" ;;
             *) 
                 echo -e "${RED}Unsupported architecture $1. Exiting...${NC}"
                 exit 1
