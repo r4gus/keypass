@@ -9,21 +9,21 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const tresor_dep = b.dependency("tresor", .{
+    const ccdb_dep = b.dependency("ccdb", .{
         .target = target,
         .optimize = optimize,
     });
 
     const exe = b.addExecutable(.{
         .name = "passkeez",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
     exe.root_module.addImport("keylib", keylib_dep.module("keylib"));
     exe.root_module.addImport("uhid", keylib_dep.module("uhid"));
     exe.root_module.addImport("zbor", keylib_dep.module("zbor"));
-    exe.root_module.addImport("tresor", tresor_dep.module("tresor"));
+    exe.root_module.addImport("ccdb", ccdb_dep.module("ccdb"));
     exe.linkLibC();
 
     b.installArtifact(exe);

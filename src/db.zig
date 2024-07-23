@@ -1,7 +1,7 @@
 const std = @import("std");
-const tresor = @import("tresor");
+const ccdb = @import("ccdb");
 
-pub fn open(path: []const u8, pw: []const u8, a: std.mem.Allocator) !tresor.Tresor {
+pub fn open(path: []const u8, pw: []const u8, a: std.mem.Allocator) !ccdb.Db {
     var file = openFile(path) catch |e| {
         if (e == error.WouldBlock) {
             return error.WouldBlock;
@@ -14,12 +14,12 @@ pub fn open(path: []const u8, pw: []const u8, a: std.mem.Allocator) !tresor.Tres
     const mem = try file.readToEndAlloc(a, 50_000_000);
     defer a.free(mem);
 
-    return tresor.Tresor.open(
+    return ccdb.Db.open(
         mem,
-        pw,
         a,
-        std.crypto.random,
         std.time.milliTimestamp,
+        std.crypto.random,
+        pw,
     );
 }
 

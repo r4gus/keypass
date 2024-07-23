@@ -1,7 +1,15 @@
 const std = @import("std");
 const keylib = @import("keylib");
+const dt = keylib.common.dt;
 const cbor = @import("zbor");
 const uhid = @import("uhid");
+
+const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
+const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
+const Error = keylib.ctap.authenticator.callbacks.Error;
+const Credential = keylib.ctap.authenticator.Credential;
+const CallbackError = keylib.ctap.authenticator.callbacks.CallbackError;
+const Meta = keylib.ctap.authenticator.Meta;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
@@ -9,6 +17,10 @@ const allocator = gpa.allocator();
 const State = @import("state.zig");
 
 var initialized = false;
+
+var fetch_index: ?usize = null;
+var fetch_rp: ?dt.ABS128T = null;
+var fetch_ts: ?i64 = null;
 
 pub fn main() !void {
     State.init(allocator) catch |e| {
@@ -24,13 +36,13 @@ pub fn main() !void {
         // The commands map from a command code to a command function. All functions have the
         // same interface and you can implement your own to extend the authenticator beyond
         // the official spec, e.g. add a command to store passwords.
-        .commands = &.{
-            .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
-            .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
-            .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
-            .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
-            //.{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
-        },
+        //.commands = &.{
+        //    .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
+        //    .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
+        //    .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
+        //    .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
+        //    //.{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
+        //},
         // The settings are returned by a getInfo request and describe the capabilities
         // of your authenticator. Make sure your configuration is valid based on the
         // CTAP2 spec!
@@ -78,9 +90,6 @@ pub fn main() !void {
         .algorithms = &.{
             keylib.ctap.crypto.algorithms.Es256,
         },
-        // This allocator is used to allocate memory and has to be the same
-        // used for the callbacks.
-        .allocator = allocator,
         // A function to get the epoch time as i64.
         .milliTimestamp = std.time.milliTimestamp,
         // A cryptographically secure random number generator
@@ -183,9 +192,6 @@ const Data = struct {
     data: []const u8,
 };
 
-// For this example we use a volatile storage solution for our credentials.
-var data_set = std.ArrayList(Data).init(allocator);
-
 // /////////////////////////////////////////
 // Auth
 //
@@ -198,12 +204,8 @@ var data_set = std.ArrayList(Data).init(allocator);
 // store the credentials is up to you.
 // /////////////////////////////////////////
 
-const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
-const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
-const Error = keylib.ctap.authenticator.callbacks.Error;
-
 pub fn authenticatorSelection() keylib.ctap.StatusCodes {
-    const r = std.ChildProcess.run(.{
+    const r = std.process.Child.run(.{
         .allocator = allocator,
         .argv = &.{
             "zigenity",
@@ -249,12 +251,12 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
 
 pub fn my_uv(
     /// Information about the context (e.g., make credential)
-    info: [*c]const u8,
+    info: []const u8,
     /// Information about the user (e.g., `David Sugar (david@example.com)`)
-    user: [*c]const u8,
+    user: ?keylib.common.User,
     /// Information about the relying party (e.g., `Github (github.com)`)
-    rp: [*c]const u8,
-) callconv(.C) UvResult {
+    rp: ?keylib.common.RelyingParty,
+) UvResult {
     _ = info;
     _ = user;
     _ = rp;
@@ -264,26 +266,27 @@ pub fn my_uv(
 
 pub fn my_up(
     /// Information about the context (e.g., make credential)
-    info: [*c]const u8,
+    info: []const u8,
     /// Information about the user (e.g., `David Sugar (david@example.com)`)
-    user: [*c]const u8,
+    user: ?keylib.common.User,
     /// Information about the relying party (e.g., `Github (github.com)`)
-    rp: [*c]const u8,
-) callconv(.C) UpResult {
-    _ = user;
+    rp: ?keylib.common.RelyingParty,
+) UpResult {
     _ = info;
+    _ = user;
 
+    std.log.info("up: {any}", .{State.up_result});
     if (State.up_result) |r| return r;
 
     const text = std.fmt.allocPrint(allocator, "--text=Do you want to log in to {s}?", .{
-        if (rp != null) rp[0..strlen(rp)] else "website",
+        if (rp) |rp_| rp_.id.get() else "Unknown Website",
     }) catch |e| {
         std.log.err("up: unable to allocate memory for text ({any})", .{e});
         return UpResult.Denied;
     };
     defer allocator.free(text);
 
-    const r = std.ChildProcess.run(.{
+    const r = std.process.Child.run(.{
         .allocator = allocator,
         .argv = &.{
             "zigenity",
@@ -303,6 +306,7 @@ pub fn my_up(
         allocator.free(r.stderr);
     }
 
+    std.log.info("up result: {d}", .{r.term.Exited});
     switch (r.term.Exited) {
         0 => return UpResult.Accepted,
         5 => return UpResult.Timeout,
@@ -310,142 +314,152 @@ pub fn my_up(
     }
 }
 
-pub fn my_select(
-    rpId: [*c]const u8,
-    users: [*c][*c]const u8,
-) callconv(.C) i32 {
-    _ = rpId;
-    _ = users;
+pub fn my_read_first(
+    id: ?dt.ABS64B,
+    rp: ?dt.ABS128T,
+) CallbackError!Credential {
+    std.log.info("my_first_read:\n  id:   {s}\n  rpId: {s}", .{
+        if (id) |uid| uid.get() else "n.a.",
+        if (rp) |rpid| rpid.get() else "n.a.",
+    });
 
-    return 0;
-}
-
-pub fn my_read(
-    id: [*c]const u8,
-    rp: [*c]const u8,
-    out: *[*c][*c]u8,
-) callconv(.C) Error {
     if (id != null) {
-        if (State.database.getEntry(id[0..strlen(id)])) |*e| {
-            if (e.*.getField("Data", std.time.microTimestamp())) |data| {
-                var d = allocator.alloc(u8, data.len + 1) catch {
-                    std.log.err("out of memory", .{});
-                    return Error.OutOfMemory;
-                };
-                @memcpy(d[0..data.len], data);
-                d[data.len] = 0;
-                //var d = gpa.dupeZ(u8, data) catch {
-                //    std.log.err("out of memory", .{});
-                //    return Error.OutOfMemory;
-                //};
-
-                var x = allocator.alloc([*c]u8, 2) catch {
-                    std.log.err("out of memory", .{});
-                    return Error.OutOfMemory;
-                };
-
-                x[0] = d.ptr;
-                x[1] = null;
-                out.* = x.ptr;
-
-                return Error.SUCCESS;
-            } else {
-                std.log.err("Data field not present", .{});
-                return Error.Other;
-            }
-        } else {
-            std.log.warn("no entry with id {s} found", .{id[0..strlen(id)]});
-            return Error.DoesNotExist;
+        if (State.database.body.getEntryById(id.?.get())) |e| {
+            return State.credentialFromEntry(e) catch {
+                std.log.warn("entry with id {s} is not a credential ({any})", .{
+                    std.fmt.fmtSliceHexLower(id.?.get()),
+                    e,
+                });
+                return error.DoesNotExist;
+            };
         }
+
+        std.log.warn("no entry with id {s} found", .{id.?.get()});
+        return error.DoesNotExist;
     } else if (rp != null) {
-        var arr = std.ArrayList([*c]u8).init(allocator);
-        if (State.database.getEntries(
-            &.{.{ .key = "Url", .value = rp[0..strlen(rp)] }},
-            allocator,
-        )) |entries| {
-            for (entries) |*e| {
-                if (e.*.getField("Data", std.time.microTimestamp())) |data| {
-                    const d = allocator.dupeZ(u8, data) catch {
-                        std.log.err("out of memory", .{});
-                        return Error.OutOfMemory;
+        for (State.database.body.entries.items, 0..) |*entry, i| {
+            if (entry.url) |url| {
+                if (std.mem.eql(u8, url, rp.?.get())) {
+                    fetch_index = i + 1;
+                    fetch_rp = rp;
+                    fetch_ts = std.time.milliTimestamp();
+
+                    return State.credentialFromEntry(entry) catch {
+                        std.log.warn("entry with id {s} is not a credential ({any})", .{
+                            entry.uuid[0..],
+                            entry,
+                        });
+                        continue;
                     };
-                    arr.append(d) catch {
-                        std.log.err("out of memory", .{});
-                        return Error.OutOfMemory;
-                    };
-                } else {
-                    std.log.err("Data field not present", .{});
-                    continue;
                 }
             }
         }
 
-        if (arr.items.len > 0) {
-            const x = arr.toOwnedSliceSentinel(null) catch {
-                std.log.err("out of memory", .{});
-                arr.deinit();
-                return Error.OutOfMemory;
-            };
-            out.* = x.ptr;
-            return Error.SUCCESS;
-        } else {
-            arr.deinit();
-            return Error.DoesNotExist;
+        std.log.warn("no entry for relying party '{s}' found", .{rp.?.get()});
+        return error.DoesNotExist;
+    } else {
+        // TODO
+        return error.DoesNotExist;
+    }
+
+    return error.DoesNotExist;
+}
+
+pub fn my_read_next() CallbackError!Credential {
+    std.log.info("my_read_next: fetch_ts {any}, fetch_index {any}, fetch_rp {any}", .{ fetch_ts, fetch_index, fetch_rp });
+    if (fetch_ts == null or fetch_index == null or fetch_rp == null) {
+        fetch_index = null;
+        fetch_rp = null;
+        fetch_ts = null;
+
+        return error.Other;
+    }
+
+    while (State.database.body.entries.items.len > fetch_index.?) {
+        const entry = State.database.body.entries.items[fetch_index.?];
+        fetch_index.? += 1;
+
+        if (entry.url) |url| {
+            if (std.mem.eql(u8, url, fetch_rp.?.get())) {
+                return State.credentialFromEntry(&entry) catch {
+                    std.log.warn("entry with id {s} is not a credential ({any})", .{
+                        entry.uuid[0..],
+                        entry,
+                    });
+                    continue;
+                };
+            }
         }
     }
 
-    return Error.DoesNotExist;
+    std.log.info("my_read_next: no entry found", .{});
+    fetch_index = null;
+    fetch_rp = null;
+    fetch_ts = null;
+    return error.DoesNotExist;
 }
 
 pub fn my_write(
-    id: [*c]const u8,
-    rp: [*c]const u8,
-    data: [*c]const u8,
-) callconv(.C) Error {
-    if (State.database.getEntry(id[0..strlen(id)])) |*e| {
-        e.*.updateField("Data", data[0..strlen(data)], std.time.milliTimestamp()) catch {
-            std.log.err("unable to update field", .{});
-            return Error.Other;
-        };
-    } else {
-        var e = State.database.createEntry(id[0..strlen(id)]) catch {
+    data: Credential,
+) CallbackError!void {
+    var e = if (State.database.body.getEntryById(data.id.get())) |e| e else blk: {
+        var e = State.database.body.newEntry() catch {
             std.log.err("unable to create new entry", .{});
-            return Error.Other;
+            return error.Other;
         };
+        // We use the uuid generated by keylib as uuid for our entry.
+        @memcpy(e.uuid[0..], data.id.get());
+        break :blk e;
+    };
 
-        e.addField(
-            "Url",
-            rp[0..strlen(rp)],
-            std.time.milliTimestamp(),
-        ) catch {
-            std.log.err("unable to add Url field", .{});
-            e.deinit();
-            return Error.Other;
-        };
+    // update user
+    e.setUser(.{
+        .id = data.user.id.get(),
+        .name = if (data.user.name) |name| name.get() else null,
+        .display_name = if (data.user.displayName) |name| name.get() else null,
+    }) catch {
+        std.log.err("unable to update name of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
 
-        e.addField(
-            "Data",
-            data[0..strlen(data)],
-            std.time.milliTimestamp(),
-        ) catch {
-            std.log.err("unable to add Data field", .{});
-            e.deinit();
-            return Error.Other;
-        };
+    // update rp
+    e.setUrl(data.rp.id.get()) catch {
+        std.log.err("unable to update url of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
 
-        State.database.addEntry(e) catch {
-            std.log.err("unable to add entry to database", .{});
-            e.deinit();
-            return Error.Other;
-        };
+    e.times.cnt = data.sign_count;
+
+    e.setKey(data.key);
+
+    if (e.tags) |tags| {
+        for (tags, 0..) |tag, i| {
+            if (tag.len < 8) continue;
+            if (!std.mem.eql(u8, "policy:", tag[0..7])) continue;
+
+            e.removeTag(i);
+
+            break;
+        }
     }
+
+    const p = std.fmt.allocPrint(allocator, "policy:{s}", .{
+        data.policy.toString(),
+    }) catch {
+        std.log.err("unable to allocate memory for policy of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
+    defer allocator.free(p);
+
+    e.addTag(p) catch {
+        std.log.err("unable to update policy of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
 
     // persist data
     State.writeDb(allocator) catch {
-        return Error.Other;
+        return error.Other;
     };
-
-    return Error.SUCCESS;
 }
 
 pub fn my_delete(
@@ -455,19 +469,21 @@ pub fn my_delete(
     return Error.Other;
 }
 
+pub fn my_read_settings() Meta {
+    return Meta{};
+}
+
+pub fn my_write_settings(data: Meta) void {
+    _ = data;
+}
+
 const callbacks = keylib.ctap.authenticator.callbacks.Callbacks{
     .up = my_up,
     .uv = my_uv,
-    .select = my_select,
-    .read = my_read,
+    .read_first = my_read_first,
+    .read_next = my_read_next,
     .write = my_write,
     .delete = my_delete,
+    .read_settings = my_read_settings,
+    .write_settings = my_write_settings,
 };
-
-// MISC
-
-pub fn strlen(s: [*c]const u8) usize {
-    var i: usize = 0;
-    while (s[i] != 0) : (i += 1) {}
-    return i;
-}

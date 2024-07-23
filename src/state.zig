@@ -1,7 +1,6 @@
 const std = @import("std");
-const tresor = @import("tresor");
+const ccdb = @import("ccdb");
 const db = @import("db.zig");
-const dvui = @import("dvui");
 const keylib = @import("keylib");
 const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
 const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
@@ -22,7 +21,7 @@ pub var conf: db.Config = undefined;
 ///
 /// TODO: currently the main thread uses the database only for reading
 ///       but we probably need a lock in the future.
-pub var database: tresor.Tresor = undefined;
+pub var database: ccdb.Db = undefined;
 
 pub var uv_result = UvResult.Denied;
 pub var up_result: ?UpResult = null;
@@ -76,7 +75,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
     f.close();
 
     outer: while (i > 0) : (i -= 1) {
-        var password = std.ChildProcess.run(.{
+        var password = std.process.Child.run(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -91,7 +90,9 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             return e;
         };
         defer {
+            @memset(password.stdout, 0);
             a.free(password.stdout);
+            @memset(password.stderr, 0);
             a.free(password.stderr);
         }
         std.log.info("{any}", .{password});
@@ -104,7 +105,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                     a,
                 ) catch |e| {
                     std.log.err("unable to decrypt database {s} ({any})", .{ conf.db_path, e });
-                    const r = std.ChildProcess.run(.{
+                    const r = std.process.Child.run(.{
                         .allocator = a,
                         .argv = &.{
                             "zigenity",
@@ -139,7 +140,7 @@ pub fn authenticate(a: std.mem.Allocator) !void {
             },
         }
     } else {
-        const r = std.ChildProcess.run(.{
+        const r = std.process.Child.run(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -171,8 +172,17 @@ pub fn writeDb(gpa: std.mem.Allocator) !void {
     };
     defer f2.close();
 
-    database.seal(f2.writer(), pw) catch |e| {
-        std.log.err("unable to persist database", .{});
+    const raw = database.seal(gpa) catch |e| {
+        std.log.err("unable to seal database ({any})", .{e});
+        return e;
+    };
+    defer {
+        @memset(raw, 0);
+        gpa.free(raw);
+    }
+
+    f2.writer().writeAll(raw) catch |e| {
+        std.log.err("unable to persist database ({any})", .{e});
         return e;
     };
 
@@ -215,7 +225,7 @@ pub fn deinit(a: std.mem.Allocator) void {
 }
 
 fn createDialog(a: std.mem.Allocator) !std.fs.File {
-    const r1 = std.ChildProcess.run(.{
+    const r1 = std.process.Child.run(.{
         .allocator = a,
         .argv = &.{
             "zigenity",
@@ -241,7 +251,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
     }
 
     outer: while (true) {
-        var r2 = std.ChildProcess.run(.{
+        var r2 = std.process.Child.run(.{
             .allocator = a,
             .argv = &.{
                 "zigenity",
@@ -267,7 +277,7 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 const pw1 = r2.stdout[0 .. r2.stdout.len - 1];
 
                 if (pw1.len < 8) {
-                    const r = std.ChildProcess.run(.{
+                    const r = std.process.Child.run(.{
                         .allocator = a,
                         .argv = &.{
                             "zigenity",
@@ -297,28 +307,30 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
                 };
                 errdefer f_db.close();
 
-                var store = tresor.Tresor.new(
-                    1,
-                    0,
-                    .ChaCha20,
-                    .None,
-                    .Argon2id,
-                    "PassKey",
-                    "PassKeeZ",
-                    a,
-                    std.crypto.random,
-                    std.time.milliTimestamp,
-                ) catch |e| {
+                var store = ccdb.Db.new("PassKeeZ", "Passkeys", .{}, a) catch |e| {
                     std.log.err("unable to create database ({any})", .{e});
                     return e;
                 };
                 defer store.deinit();
-                store.seal(f_db.writer(), pw1) catch |e| {
+                store.setKey(pw1) catch |e| {
+                    std.log.err("unable to set database key ({any})", .{e});
+                    return e;
+                };
+                const raw = store.seal(a) catch |e| {
                     std.log.err("unable to seal database ({any})", .{e});
                     return e;
                 };
+                defer {
+                    @memset(raw, 0);
+                    a.free(raw);
+                }
 
-                const r = std.ChildProcess.run(.{
+                f_db.writer().writeAll(raw) catch |e| {
+                    std.log.err("unable to write database ({any})", .{e});
+                    return e;
+                };
+
+                const r = std.process.Child.run(.{
                     .allocator = a,
                     .argv = &.{
                         "zigenity",
@@ -345,4 +357,35 @@ fn createDialog(a: std.mem.Allocator) !std.fs.File {
             else => return error.CreateDbRejected,
         }
     }
+}
+
+pub fn credentialFromEntry(entry: *const ccdb.Entry) !keylib.ctap.authenticator.Credential {
+    if (entry.user == null) return error.MissingUser;
+    if (entry.url == null) return error.MissingRelyingParty;
+    if (entry.key == null) return error.MissingKey;
+    if (entry.tags == null) return error.MissingPolicy;
+
+    const policy = blk: for (entry.tags.?) |tag| {
+        if (tag.len < 8) continue;
+        if (!std.mem.eql(u8, "policy:", tag[0..7])) continue;
+
+        if (keylib.ctap.extensions.CredentialCreationPolicy.fromString(tag[7..])) |p| {
+            break :blk p;
+        } else {
+            return error.MissingPolicy;
+        }
+    } else {
+        return error.MissingPolicy;
+    };
+
+    return .{
+        .id = (try keylib.common.dt.ABS64B.fromSlice(entry.uuid[0..])).?,
+        .user = try keylib.common.User.new(entry.user.?.id.?, entry.user.?.name, entry.user.?.display_name),
+        .rp = try keylib.common.RelyingParty.new(entry.url.?, null),
+        .sign_count = if (entry.times.cnt) |cnt| cnt else 0,
+        .key = entry.key.?,
+        .created = entry.times.creat,
+        .discoverable = true,
+        .policy = policy,
+    };
 }
