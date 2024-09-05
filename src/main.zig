@@ -1,435 +1,465 @@
 const std = @import("std");
-const tresor = @import("tresor");
 const keylib = @import("keylib");
+const dt = keylib.common.dt;
 const cbor = @import("zbor");
 const uhid = @import("uhid");
-const dvui = @import("dvui");
-const Backend = @import("SDLBackend");
-const db = @import("db.zig");
-const style = @import("style.zig");
-const application_state = @import("state.zig");
-const gui = @import("gui.zig");
-
-pub const VERSION: []const u8 = "0.2.5";
-
-const window_icon_png = @embedFile("static/passkeez.png");
-
-var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
-pub const gpa = gpa_instance.allocator();
-
-const vsync = true;
-
-var win: dvui.Window = undefined;
-
-/// This example shows how to use the dvui for a normal application:
-/// - dvui renders the whole application
-/// - render frames only when needed
-pub fn main() !void {
-
-    // //////////////////////////////////////
-    // GUI Init
-    // //////////////////////////////////////
-
-    // init SDL backend (creates OS window)
-    var backend = try Backend.init(.{
-        .size = .{ .w = 680.0, .h = 400.0 },
-        .min_size = .{ .w = 680.0, .h = 400.0 },
-        .vsync = vsync,
-        .title = "PassKeeZ",
-    });
-    defer backend.deinit();
-    backend.setIconFromFileContent(window_icon_png);
-
-    // init dvui Window (maps onto a single OS window)
-    win = try dvui.Window.init(@src(), 0, gpa, backend.backend());
-    win.content_scale = backend.initial_scale;
-    defer win.deinit();
-
-    win.theme = &style.keypass_light;
-
-    // //////////////////////////////////////
-    // App Init
-    // //////////////////////////////////////
-
-    application_state.app_state = application_state.AppState{
-        .states = std.ArrayList(application_state.AppState.State).init(gpa),
-    };
-    defer application_state.app_state.deinit();
-
-    var config_file = db.Config.load(gpa) catch blk: {
-        std.log.info("No configuration file found in `~/.keypass`", .{});
-        try db.Config.create(gpa);
-        var f = try db.Config.load(gpa);
-        std.log.info("Configuration file created", .{});
-        break :blk f;
-    };
-
-    try application_state.app_state.pushState(application_state.AppState.State{ .login = .{} });
-    @memset(application_state.app_state.getState().login.path[0..], 0);
-    @memcpy(
-        application_state.app_state.getState().login.path[0..config_file.db_path.len],
-        config_file.db_path,
-    );
-
-    config_file.deinit(gpa);
-    // //////////////////////////////////////
-    // Main
-    // //////////////////////////////////////
-
-    main_loop: while (true) {
-        // beginWait coordinates with waitTime below to run frames only when needed
-        var nstime = win.beginWait(backend.hasEvent());
-
-        // marks the beginning of a frame for dvui, can call dvui functions after this
-        try win.begin(nstime);
-
-        // send all SDL events to dvui for processing
-        const quit = try backend.addAllEvents(&win);
-        if (quit) break :main_loop;
-
-        try gui.dvui_frame();
-
-        // marks end of dvui frame, don't call dvui functions after this
-        // - sends all dvui stuff to backend for rendering, must be called before renderPresent()
-        const end_micros = try win.end(.{});
-
-        // cursor management
-        backend.setCursor(win.cursorRequested());
-
-        // render frame to OS
-        backend.renderPresent();
-
-        // waitTime and beginWait combine to achieve variable framerates
-        const wait_event_micros = win.waitTime(end_micros, null);
-        backend.waitEventTimeout(wait_event_micros);
-    }
-
-    switch (application_state.app_state.getStateTag()) {
-        .login => {},
-        .main => {
-            application_state.deinit(gpa);
-        },
-    }
-}
-
-pub inline fn slen(s: []const u8) usize {
-    return std.mem.indexOfScalar(u8, s, 0) orelse s.len;
-}
-
-pub fn strlen(s: [*c]const u8) usize {
-    var i: usize = 0;
-    while (s[i] != 0) : (i += 1) {}
-    return i;
-}
-
-// /////////////////////////////////////////
-// Auth
-// /////////////////////////////////////////
 
 const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
 const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
 const Error = keylib.ctap.authenticator.callbacks.Error;
+const Credential = keylib.ctap.authenticator.Credential;
+const CallbackError = keylib.ctap.authenticator.callbacks.CallbackError;
+const Meta = keylib.ctap.authenticator.Meta;
 
-pub fn my_uv(
-    /// Information about the context (e.g., make credential)
-    info: [*c]const u8,
-    /// Information about the user (e.g., `David Sugar (david@example.com)`)
-    user: [*c]const u8,
-    /// Information about the relying party (e.g., `Github (github.com)`)
-    rp: [*c]const u8,
-) callconv(.C) UvResult {
-    _ = info;
-    _ = user;
-    _ = rp;
-    // The authenticator backend is only started if a correct password has been provided
-    // so we return Accepted. As this state may last for multiple minutes it's important
-    // that we ask for user presence, i.e. we DONT return AcceptedWithUp!
-    //
-    // TODO: "logout after being inactive for m minutes"
-    return UvResult.Accepted;
-}
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
 
-pub fn my_up(
-    /// Information about the context (e.g., make credential)
-    info: [*c]const u8,
-    /// Information about the user (e.g., `David Sugar (david@example.com)`)
-    user: [*c]const u8,
-    /// Information about the relying party (e.g., `Github (github.com)`)
-    rp: [*c]const u8,
-) callconv(.C) UpResult {
-    if (info) |i| {
-        std.log.info("{s}", .{i});
-    }
+const State = @import("state.zig");
 
-    const dialogsFollowup = struct {
-        var confirm: ?bool = null;
-        fn callafter(id: u32, response: dvui.enums.DialogResponse) dvui.Error!void {
-            _ = id;
-            confirm = (response == dvui.enums.DialogResponse.ok);
-        }
+var initialized = false;
 
-        pub fn dialogDisplay(id: u32) !void {
-            const modal = dvui.dataGet(null, id, "_modal", bool) orelse {
-                std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
-                dvui.dialogRemove(id);
-                return;
-            };
-            _ = modal;
+var fetch_index: ?usize = null;
+var fetch_rp: ?dt.ABS128T = null;
+var fetch_ts: ?i64 = null;
 
-            const title = dvui.dataGetSlice(null, id, "_title", []u8) orelse {
-                std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
-                dvui.dialogRemove(id);
-                return;
-            };
-
-            const message = dvui.dataGetSlice(null, id, "_message", []u8) orelse {
-                std.log.err("dialogDisplay lost data for dialog {x}\n", .{id});
-                dvui.dialogRemove(id);
-                return;
-            };
-
-            var _win = try dvui.floatingWindow(@src(), .{ .modal = true }, .{ .id_extra = id });
-            defer _win.deinit();
-
-            var header_openflag = true;
-            try dvui.windowHeader(title, "", &header_openflag);
-            if (!header_openflag) {
-                dvui.dialogRemove(id);
-                try callafter(id, .closed);
-                return;
-            }
-
-            var tl = try dvui.textLayout(@src(), .{}, .{
-                .expand = .horizontal,
-                .background = false,
-                .gravity_x = 0.5,
-                .corner_radius = dvui.Rect.all(0),
-            });
-            try tl.addText(message, .{});
-            tl.deinit();
-
-            var hbox = try dvui.box(@src(), .horizontal, .{
-                .expand = .horizontal,
-            });
-            defer hbox.deinit();
-
-            if (try dvui.button(@src(), "DENIE", .{}, .{
-                .gravity_x = 0.0,
-                .gravity_y = 0.5,
-                .tab_index = 1,
-                .color_fill = style.err,
-                .color_hover = dvui.Color.lerp(style.err, 0.2, dvui.Color.white),
-                .corner_radius = dvui.Rect.all(0),
-            })) {
-                dvui.dialogRemove(id);
-                try callafter(id, .closed);
-                return;
-            }
-
-            if (try dvui.button(@src(), "ACCEPT", .{}, .{
-                .gravity_x = 1.0,
-                .gravity_y = 0.5,
-                .tab_index = 1,
-                .color_fill = style.control,
-                .color_hover = dvui.Color.lerp(style.control, 0.2, dvui.Color.white),
-                .corner_radius = dvui.Rect.all(0),
-            })) {
-                dvui.dialogRemove(id);
-                try callafter(id, .ok);
-                return;
-            }
-        }
+pub fn main() !void {
+    State.init(allocator) catch |e| {
+        std.log.err("Unable to initialize application ({any})", .{e});
+        return std.c.exit(1);
     };
 
-    const begin = std.time.milliTimestamp();
-
-    const title = std.fmt.allocPrint(gpa, "User Presence Check{s}{s}", .{
-        if (info != null) ": " else "",
-        if (info != null) info[0..strlen(info)] else "",
-    }) catch blk: {
-        break :blk "oops";
+    // The Auth struct is the most important part of your authenticator. It defines
+    // its capabilities and behavior.
+    var auth = keylib.ctap.authenticator.Auth{
+        // The callbacks are the interface between the authenticator and the rest of the application (see below).
+        .callbacks = callbacks,
+        // The commands map from a command code to a command function. All functions have the
+        // same interface and you can implement your own to extend the authenticator beyond
+        // the official spec, e.g. add a command to store passwords.
+        //.commands = &.{
+        //    .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
+        //    .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
+        //    .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
+        //    .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
+        //    //.{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
+        //},
+        // The settings are returned by a getInfo request and describe the capabilities
+        // of your authenticator. Make sure your configuration is valid based on the
+        // CTAP2 spec!
+        .settings = .{
+            // Those are the FIDO2 spec you support
+            .versions = &.{ .FIDO_2_0, .FIDO_2_1 },
+            // The extensions are defined as strings which should make it easy to extend
+            // the authenticator (in combination with a new command).
+            .extensions = &.{"credProtect"},
+            // This should be unique for all models of the same authenticator.
+            .aaguid = "\x73\x79\x63\x2e\x70\x61\x73\x73\x6b\x65\x65\x7a\x2e\x6f\x72\x67".*,
+            .options = .{
+                // We don't support the credential management command. If you want to
+                // then you need to implement it yourself and add it to commands and
+                // set this flag to true.
+                .credMgmt = false,
+                // We support discoverable credentials, a.k.a resident keys, a.k.a passkeys
+                .rk = true,
+                // We support built in user verification (see the callback below)
+                .uv = true,
+                // This is a platform authenticator even if we use usb for ipc
+                .plat = true,
+                // We don't support client pin but you could also add the command
+                // yourself and set this to false (not initialized) or true (initialized).
+                .clientPin = null,
+                // We support pinUvAuthToken
+                .pinUvAuthToken = true,
+                // If you want to enforce alwaysUv you also have to set this to true.
+                .alwaysUv = true,
+            },
+            // The pinUvAuth protocol to support. This library implements V1 and V2.
+            .pinUvAuthProtocols = &.{.V2},
+            // The transports your authenticator supports.
+            .transports = &.{.usb},
+            // The algorithms you support.
+            .algorithms = &.{.{ .alg = .Es256 }},
+            .firmwareVersion = 0x0036,
+            .remainingDiscoverableCredentials = 100,
+        },
+        // Here we initialize the pinUvAuth token data structure wich handles the generation
+        // and management of pinUvAuthTokens.
+        .token = keylib.ctap.pinuv.PinUvAuth.v2(std.crypto.random),
+        // Here we set the supported algorithm. You can also implement your
+        // own and add them here.
+        .algorithms = &.{
+            keylib.ctap.crypto.algorithms.Es256,
+        },
+        // A function to get the epoch time as i64.
+        .milliTimestamp = std.time.milliTimestamp,
+        // A cryptographically secure random number generator
+        .random = std.crypto.random,
+        // If you don't want to increment the sign counts
+        // of credentials (e.g. because you sync them between devices)
+        // set this to true.
+        .constSignCount = true,
     };
 
-    var message = std.fmt.allocPrint(gpa, "Please ACCEPT or DENIE the requested action for {s} {s}{s}{s}", .{
-        if (rp != null) rp[0..strlen(rp)] else "???",
-        if (user != null) "(" else "",
-        if (user != null) user[0..strlen(user)] else "",
-        if (user != null) ")" else "",
-    }) catch blk: {
-        break :blk "oops";
+    // Here we instantiate a CTAPHID handler.
+    var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(allocator, std.crypto.random);
+    defer ctaphid.deinit();
+
+    // We use the uhid module on linux to simulate a USB device. If you use
+    // tinyusb or something similar you have to adapt the code.
+    var u = uhid.Uhid.open() catch |e| {
+        std.log.err("unable to open uhid device ({any})", .{e});
+        return e;
     };
+    defer u.close();
 
-    dvui.dialog(@src(), .{
-        .window = &win,
-        .modal = false,
-        .title = title,
-        .message = message,
-        .callafterFn = dialogsFollowup.callafter,
-        .displayFn = dialogsFollowup.dialogDisplay,
-    }) catch return .Denied;
+    // This is the main loop
+    while (true) {
+        State.update(allocator);
 
-    while (std.time.milliTimestamp() - begin < 60_000) {
-        // If the authenticator thread gets a stop signal, return timeout
-        if (application_state.app_state.getState().main.stop) {
-            return .Timeout;
-        }
+        // We read in usb packets with a size of 64 bytes.
+        var buffer: [64]u8 = .{0} ** 64;
+        if (u.read(&buffer)) |packet| {
+            // Those packets are passed to the CTAPHID handler who assembles
+            // them into a CTAPHID message.
+            var response = ctaphid.handle(packet);
+            // Once a message is complete (or an error has occured) you
+            // get a response.
+            if (response) |*res| blk: {
+                var skip = false;
 
-        if (dialogsFollowup.confirm != null) {
-            defer dialogsFollowup.confirm = null;
-            if (dialogsFollowup.confirm.?) {
-                return .Accepted;
-            } else {
-                return .Denied;
+                switch (res.cmd) {
+                    .cbor => {
+                        // We have to handle this here as we don't need to
+                        // decrypt the database for this
+                        if (res._data[0] == 0x0b) { // authenticator selection
+                            res._data[0] = @intFromEnum(authenticatorSelection());
+                            res.len = 1;
+                            skip = true;
+                        }
+                    },
+                    else => {},
+                }
+
+                if (!skip) {
+                    State.authenticate(allocator) catch |e| {
+                        std.log.err("authentication failed ({any})", .{e});
+                        res._data[0] = 0x3f;
+                        res.len = 1;
+                        skip = true;
+                    };
+                }
+
+                if (!skip) {
+                    if (!initialized) {
+                        try auth.init();
+                        initialized = true;
+                    }
+
+                    switch (res.cmd) {
+                        // Here we check if its a cbor message and if so, pass
+                        // it to the handle() function of our authenticator.
+                        .cbor => {
+                            var out: [7609]u8 = undefined;
+                            const r = auth.handle(&out, res.getData());
+                            @memcpy(res._data[0..r.len], r);
+                            res.len = r.len;
+                        },
+                        else => {},
+                    }
+                }
+
+                var iter = res.iterator();
+                // Here we iterate over the response packets of our authenticator.
+                while (iter.next()) |p| {
+                    u.write(p) catch |e| {
+                        std.log.err("unable to write usb packet ({any})", .{e});
+                        break :blk;
+                    };
+                }
             }
         }
         std.time.sleep(10000000);
     }
-
-    return UpResult.Timeout;
 }
 
-pub fn my_select(
-    rpId: [*c]const u8,
-    users: [*c][*c]const u8,
-) callconv(.C) i32 {
-    _ = rpId;
-    _ = users;
-    //const id = dvui.hashSrc(@src(), 0xeecd);
-    //const mutex = try win.dialogAdd(id, selectDialog);
-    //dvui.refresh(win, @src(), id);
-    //dvui.dataSet(win, id, "_users", users);
-    //dvui.dataSetSlice(win, "_rpId", rpId[0..slen(rpId)]);
-    //mutex.unlock();
+// /////////////////////////////////////////
+// Data
+// /////////////////////////////////////////
 
-    return 0;
+const Data = struct {
+    rp: []const u8,
+    id: []const u8,
+    data: []const u8,
+};
+
+// /////////////////////////////////////////
+// Auth
+//
+// Below you can see all the callbacks you have to implement
+// (that are expected by the default command functions). Make
+// sure you allocate memory with the same allocator that you
+// passed to the Auth sturct.
+//
+// How you check user presence, conduct user verification or
+// store the credentials is up to you.
+// /////////////////////////////////////////
+
+pub fn authenticatorSelection() keylib.ctap.StatusCodes {
+    const r = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{
+            "zigenity",
+            "--question",
+            "--window-icon=/usr/share/passkeez/passkeez.png",
+            "--icon=/usr/share/passkeez/passkeez-question.png",
+            "--text=Do you want to use PassKeeZ as your authenticator?",
+            "--title=Authenticator Selection",
+            "--timeout=15",
+        },
+    }) catch |e| {
+        std.log.err("select: unable to create select dialog ({any})", .{e});
+        return .ctap2_err_operation_denied;
+    };
+    defer {
+        allocator.free(r.stdout);
+        allocator.free(r.stderr);
+    }
+
+    switch (r.term.Exited) {
+        0 => return .ctap1_err_success,
+        5 => return .ctap2_err_user_action_timeout,
+        else => return .ctap2_err_operation_denied,
+    }
 }
 
-pub fn my_read(
-    id: [*c]const u8,
-    rp: [*c]const u8,
-    out: *[*c][*c]u8,
-) callconv(.C) Error {
+//pub fn getInfo(
+//    auth: *keylib.ctap.authenticator.Auth,
+//    out: []u8,
+//) usize {
+//    var arr = std.ArrayList(u8).init(allocator);
+//    defer arr.deinit();
+//
+//    cbor.stringify(auth.settings, .{}, arr.writer()) catch {
+//        out[0] = @intFromEnum(keylib.ctap.StatusCodes.ctap1_err_other);
+//        return 1;
+//    };
+//
+//    out[0] = @intFromEnum(keylib.ctap.StatusCodes.ctap1_err_success);
+//    @memcpy(out[1 .. arr.items.len + 1], arr.items);
+//    return arr.items.len + 1;
+//}
+
+pub fn my_uv(
+    /// Information about the context (e.g., make credential)
+    info: []const u8,
+    /// Information about the user (e.g., `David Sugar (david@example.com)`)
+    user: ?keylib.common.User,
+    /// Information about the relying party (e.g., `Github (github.com)`)
+    rp: ?keylib.common.RelyingParty,
+) UvResult {
+    _ = info;
+    _ = user;
+    _ = rp;
+
+    return State.uv_result;
+}
+
+pub fn my_up(
+    /// Information about the context (e.g., make credential)
+    info: []const u8,
+    /// Information about the user (e.g., `David Sugar (david@example.com)`)
+    user: ?keylib.common.User,
+    /// Information about the relying party (e.g., `Github (github.com)`)
+    rp: ?keylib.common.RelyingParty,
+) UpResult {
+    _ = info;
+    _ = user;
+
+    std.log.info("up: {any}", .{State.up_result});
+    if (State.up_result) |r| return r;
+
+    const text = std.fmt.allocPrint(allocator, "--text=Do you want to log in to {s}?", .{
+        if (rp) |rp_| rp_.id.get() else "Unknown Website",
+    }) catch |e| {
+        std.log.err("up: unable to allocate memory for text ({any})", .{e});
+        return UpResult.Denied;
+    };
+    defer allocator.free(text);
+
+    const r = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{
+            "zigenity",
+            "--question",
+            "--window-icon=/usr/local/bin/passkeez/passkeez.png",
+            "--icon=/usr/local/bin/passkeez/passkeez-question.png",
+            text,
+            "--title=PassKeeZ: Authentication Request",
+            "--timeout=30",
+        },
+    }) catch |e| {
+        std.log.err("up: unable to create up dialog ({any})", .{e});
+        return UpResult.Denied;
+    };
+    defer {
+        allocator.free(r.stdout);
+        allocator.free(r.stderr);
+    }
+
+    std.log.info("up result: {d}", .{r.term.Exited});
+    switch (r.term.Exited) {
+        0 => return UpResult.Accepted,
+        5 => return UpResult.Timeout,
+        else => return UpResult.Denied,
+    }
+}
+
+pub fn my_read_first(
+    id: ?dt.ABS64B,
+    rp: ?dt.ABS128T,
+) CallbackError!Credential {
+    std.log.info("my_first_read:\n  id:   {s}\n  rpId: {s}", .{
+        if (id) |uid| uid.get() else "n.a.",
+        if (rp) |rpid| rpid.get() else "n.a.",
+    });
+
     if (id != null) {
-        if (application_state.database.getEntry(id[0..strlen(id)])) |*e| {
-            if (e.*.getField("Data", std.time.microTimestamp())) |data| {
-                var d = gpa.alloc(u8, data.len + 1) catch {
-                    std.log.err("out of memory", .{});
-                    return Error.OutOfMemory;
-                };
-                @memcpy(d[0..data.len], data);
-                d[data.len] = 0;
-                //var d = gpa.dupeZ(u8, data) catch {
-                //    std.log.err("out of memory", .{});
-                //    return Error.OutOfMemory;
-                //};
-
-                var x = gpa.alloc([*c]u8, 2) catch {
-                    std.log.err("out of memory", .{});
-                    return Error.OutOfMemory;
-                };
-
-                x[0] = d.ptr;
-                x[1] = null;
-                out.* = x.ptr;
-
-                return Error.SUCCESS;
-            } else {
-                std.log.err("Data field not present", .{});
-                return Error.Other;
-            }
-        } else {
-            std.log.warn("no entry with id {s} found", .{id[0..strlen(id)]});
-            return Error.DoesNotExist;
+        if (State.database.body.getEntryById(id.?.get())) |e| {
+            return State.credentialFromEntry(e) catch {
+                std.log.warn("entry with id {s} is not a credential ({any})", .{
+                    std.fmt.fmtSliceHexLower(id.?.get()),
+                    e,
+                });
+                return error.DoesNotExist;
+            };
         }
+
+        std.log.warn("no entry with id {s} found", .{id.?.get()});
+        return error.DoesNotExist;
     } else if (rp != null) {
-        var arr = std.ArrayList([*c]u8).init(gpa);
-        if (application_state.database.getEntries(
-            &.{.{ .key = "Url", .value = rp[0..strlen(rp)] }},
-            gpa,
-        )) |entries| {
-            for (entries) |*e| {
-                if (e.*.getField("Data", std.time.microTimestamp())) |data| {
-                    var d = gpa.dupeZ(u8, data) catch {
-                        std.log.err("out of memory", .{});
-                        return Error.OutOfMemory;
+        for (State.database.body.entries.items, 0..) |*entry, i| {
+            if (entry.url) |url| {
+                if (std.mem.eql(u8, url, rp.?.get())) {
+                    fetch_index = i + 1;
+                    fetch_rp = rp;
+                    fetch_ts = std.time.milliTimestamp();
+
+                    return State.credentialFromEntry(entry) catch {
+                        std.log.warn("entry with id {s} is not a credential ({any})", .{
+                            entry.uuid[0..],
+                            entry,
+                        });
+                        continue;
                     };
-                    arr.append(d) catch {
-                        std.log.err("out of memory", .{});
-                        return Error.OutOfMemory;
-                    };
-                } else {
-                    std.log.err("Data field not present", .{});
-                    continue;
                 }
             }
         }
 
-        if (arr.items.len > 0) {
-            var x = arr.toOwnedSliceSentinel(null) catch {
-                std.log.err("out of memory", .{});
-                arr.deinit();
-                return Error.OutOfMemory;
-            };
-            out.* = x.ptr;
-            return Error.SUCCESS;
-        } else {
-            arr.deinit();
-            return Error.DoesNotExist;
+        std.log.warn("no entry for relying party '{s}' found", .{rp.?.get()});
+        return error.DoesNotExist;
+    } else {
+        // TODO
+        return error.DoesNotExist;
+    }
+
+    return error.DoesNotExist;
+}
+
+pub fn my_read_next() CallbackError!Credential {
+    std.log.info("my_read_next: fetch_ts {any}, fetch_index {any}, fetch_rp {any}", .{ fetch_ts, fetch_index, fetch_rp });
+    if (fetch_ts == null or fetch_index == null or fetch_rp == null) {
+        fetch_index = null;
+        fetch_rp = null;
+        fetch_ts = null;
+
+        return error.Other;
+    }
+
+    while (State.database.body.entries.items.len > fetch_index.?) {
+        const entry = State.database.body.entries.items[fetch_index.?];
+        fetch_index.? += 1;
+
+        if (entry.url) |url| {
+            if (std.mem.eql(u8, url, fetch_rp.?.get())) {
+                return State.credentialFromEntry(&entry) catch {
+                    std.log.warn("entry with id {s} is not a credential ({any})", .{
+                        entry.uuid[0..],
+                        entry,
+                    });
+                    continue;
+                };
+            }
         }
     }
 
-    return Error.DoesNotExist;
+    std.log.info("my_read_next: no entry found", .{});
+    fetch_index = null;
+    fetch_rp = null;
+    fetch_ts = null;
+    return error.DoesNotExist;
 }
 
 pub fn my_write(
-    id: [*c]const u8,
-    rp: [*c]const u8,
-    data: [*c]const u8,
-) callconv(.C) Error {
-    if (application_state.database.getEntry(id[0..strlen(id)])) |*e| {
-        e.*.updateField("Data", data[0..strlen(data)], std.time.milliTimestamp()) catch {
-            std.log.err("unable to update field", .{});
-            return Error.Other;
-        };
-    } else {
-        var e = application_state.database.createEntry(id[0..strlen(id)]) catch {
+    data: Credential,
+) CallbackError!void {
+    var e = if (State.database.body.getEntryById(data.id.get())) |e| e else blk: {
+        var e = State.database.body.newEntry() catch {
             std.log.err("unable to create new entry", .{});
-            return Error.Other;
+            return error.Other;
         };
-
-        e.addField(
-            "Url",
-            rp[0..strlen(rp)],
-            std.time.milliTimestamp(),
-        ) catch {
-            std.log.err("unable to add Url field", .{});
-            e.deinit();
-            return Error.Other;
-        };
-
-        e.addField(
-            "Data",
-            data[0..strlen(data)],
-            std.time.milliTimestamp(),
-        ) catch {
-            std.log.err("unable to add Data field", .{});
-            e.deinit();
-            return Error.Other;
-        };
-
-        application_state.database.addEntry(e) catch {
-            std.log.err("unable to add entry to database", .{});
-            e.deinit();
-            return Error.Other;
-        };
-    }
-
-    // persist data
-    application_state.writeDb(gpa) catch {
-        return Error.Other;
+        // We use the uuid generated by keylib as uuid for our entry.
+        @memcpy(e.uuid[0..], data.id.get());
+        break :blk e;
     };
 
-    return Error.SUCCESS;
+    // update user
+    e.setUser(.{
+        .id = data.user.id.get(),
+        .name = if (data.user.name) |name| name.get() else null,
+        .display_name = if (data.user.displayName) |name| name.get() else null,
+    }) catch {
+        std.log.err("unable to update name of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
+
+    // update rp
+    e.setUrl(data.rp.id.get()) catch {
+        std.log.err("unable to update url of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
+
+    e.times.cnt = data.sign_count;
+
+    e.setKey(data.key);
+
+    if (e.tags) |tags| {
+        for (tags, 0..) |tag, i| {
+            if (tag.len < 8) continue;
+            if (!std.mem.eql(u8, "policy:", tag[0..7])) continue;
+
+            e.removeTag(i);
+
+            break;
+        }
+    }
+
+    const p = std.fmt.allocPrint(allocator, "policy:{s}", .{
+        data.policy.toString(),
+    }) catch {
+        std.log.err("unable to allocate memory for policy of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
+    defer allocator.free(p);
+
+    e.addTag(p) catch {
+        std.log.err("unable to update policy of entry with id {s}", .{data.id.get()});
+        return error.Other;
+    };
+
+    // persist data
+    State.writeDb(allocator) catch {
+        return error.Other;
+    };
 }
 
 pub fn my_delete(
@@ -439,57 +469,21 @@ pub fn my_delete(
     return Error.Other;
 }
 
+pub fn my_read_settings() Meta {
+    return Meta{};
+}
+
+pub fn my_write_settings(data: Meta) void {
+    _ = data;
+}
+
 const callbacks = keylib.ctap.authenticator.callbacks.Callbacks{
     .up = my_up,
     .uv = my_uv,
-    .select = my_select,
-    .read = my_read,
+    .read_first = my_read_first,
+    .read_next = my_read_next,
     .write = my_write,
     .delete = my_delete,
+    .read_settings = my_read_settings,
+    .write_settings = my_write_settings,
 };
-
-pub fn auth_fn() !void {
-    var auth = keylib.ctap.authenticator.Auth.default(callbacks, gpa);
-    auth.constSignCount = true;
-    try auth.init();
-
-    var ctaphid = keylib.ctap.transports.ctaphid.authenticator.CtapHid.init(gpa, std.crypto.random);
-    defer ctaphid.deinit();
-
-    var u = try uhid.Uhid.open();
-    defer u.close();
-
-    while (true) {
-        var buffer: [64]u8 = .{0} ** 64;
-        if (u.read(&buffer)) |packet| {
-            var response = ctaphid.handle(packet);
-            if (response) |*res| blk: {
-                switch (res.cmd) {
-                    .cbor => {
-                        var out: [7609]u8 = undefined;
-                        const r = auth.handle(&out, res.getData());
-                        std.mem.copy(u8, res._data[0..r.len], r);
-                        res.len = r.len;
-                    },
-                    else => {},
-                    // TODO: handle CMD
-                }
-
-                std.log.info("response: {s}", .{std.fmt.fmtSliceHexLower(res._data[0..res.len])});
-
-                var iter = res.iterator();
-                while (iter.next()) |p| {
-                    u.write(p) catch {
-                        break :blk;
-                    };
-                }
-            }
-        }
-        std.time.sleep(10000000);
-
-        // We send all data back before we end the thread
-        if (application_state.app_state.getState().main.stop) {
-            return;
-        }
-    }
-}
