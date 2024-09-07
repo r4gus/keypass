@@ -132,7 +132,7 @@ function check_config_folder {
     fi
 
     if [ ! -e /home/${SUDO_USER}/.passkeez/config.json ]; then 
-        echo '{"db_path":"~/.passkeez/db.trs"}' > /home/${SUDO_USER}/.passkeez/config.json
+        echo '{"db_path":"~/.passkeez/db.ccdb"}' > /home/${SUDO_USER}/.passkeez/config.json
         sudo chown ${SUDO_USER}:${SUDO_USER} /home/${SUDO_USER}/.passkeez/config.json
     fi
 }
