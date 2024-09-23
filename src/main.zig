@@ -378,7 +378,9 @@ pub fn my_delete(
 }
 
 pub fn my_read_settings() Meta {
-    return Meta{};
+    return Meta{
+        .always_uv = true,
+    };
 }
 
 pub fn my_write_settings(data: Meta) void {
