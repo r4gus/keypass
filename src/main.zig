@@ -36,13 +36,15 @@ pub fn main() !void {
         // The commands map from a command code to a command function. All functions have the
         // same interface and you can implement your own to extend the authenticator beyond
         // the official spec, e.g. add a command to store passwords.
-        //.commands = &.{
-        //    .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
-        //    .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
-        //    .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
-        //    .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
-        //    //.{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
-        //},
+        .commands = &.{
+            .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
+            .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
+            .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
+            .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
+            .{ .cmd = 0x08, .cb = keylib.ctap.commands.authenticator.authenticatorGetNextAssertion },
+            .{ .cmd = 0x0a, .cb = @import("cred_mgmt.zig").authenticatorCredentialManagement },
+            .{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
+        },
         // The settings are returned by a getInfo request and describe the capabilities
         // of your authenticator. Make sure your configuration is valid based on the
         // CTAP2 spec!
@@ -58,7 +60,7 @@ pub fn main() !void {
                 // We don't support the credential management command. If you want to
                 // then you need to implement it yourself and add it to commands and
                 // set this flag to true.
-                .credMgmt = false,
+                .credMgmt = true,
                 // We support discoverable credentials, a.k.a resident keys, a.k.a passkeys
                 .rk = true,
                 // We support built in user verification (see the callback below)
@@ -114,7 +116,7 @@ pub fn main() !void {
 
     // This is the main loop
     while (true) {
-        State.update(allocator);
+        State.update();
 
         // We read in usb packets with a size of 64 bytes.
         var buffer: [64]u8 = .{0} ** 64;
@@ -203,6 +205,7 @@ const Data = struct {
 // How you check user presence, conduct user verification or
 // store the credentials is up to you.
 // /////////////////////////////////////////
+const i18n = @import("i18n.zig");
 
 pub fn authenticatorSelection() keylib.ctap.StatusCodes {
     const r = std.process.Child.run(.{
@@ -212,8 +215,8 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
             "--question",
             "--window-icon=/usr/share/passkeez/passkeez.png",
             "--icon=/usr/share/passkeez/passkeez-question.png",
-            "--text=Do you want to use PassKeeZ as your authenticator?",
-            "--title=Authenticator Selection",
+            i18n.get(State.conf.lang).auth_select,
+            i18n.get(State.conf.lang).auth_select_title,
             "--timeout=15",
         },
     }) catch |e| {
@@ -278,8 +281,9 @@ pub fn my_up(
     std.log.info("up: {any}", .{State.up_result});
     if (State.up_result) |r| return r;
 
-    const text = std.fmt.allocPrint(allocator, "--text=Do you want to log in to {s}?", .{
-        if (rp) |rp_| rp_.id.get() else "Unknown Website",
+    const text = std.fmt.allocPrint(allocator, "{s} {s}", .{
+        i18n.get(State.conf.lang).user_presence,
+        if (rp) |rp_| rp_.id.get() else i18n.get(State.conf.lang).user_presence_fallback,
     }) catch |e| {
         std.log.err("up: unable to allocate memory for text ({any})", .{e});
         return UpResult.Denied;
@@ -294,7 +298,7 @@ pub fn my_up(
             "--window-icon=/usr/local/bin/passkeez/passkeez.png",
             "--icon=/usr/local/bin/passkeez/passkeez-question.png",
             text,
-            "--title=PassKeeZ: Authentication Request",
+            i18n.get(State.conf.lang).user_presence_title,
             "--timeout=30",
         },
     }) catch |e| {
@@ -323,40 +327,18 @@ pub fn my_read_first(
         if (rp) |rpid| rpid.get() else "n.a.",
     });
 
-    if (id != null) {
-        if (State.database.body.getEntryById(id.?.get())) |e| {
-            return State.credentialFromEntry(e) catch {
-                std.log.warn("entry with id {s} is not a credential ({any})", .{
-                    std.fmt.fmtSliceHexLower(id.?.get()),
-                    e,
-                });
-                return error.DoesNotExist;
-            };
-        }
+    if (rp != null) {
+        fetch_index = 0;
+        fetch_rp = rp;
+        fetch_ts = std.time.milliTimestamp();
 
-        std.log.warn("no entry with id {s} found", .{id.?.get()});
-        return error.DoesNotExist;
-    } else if (rp != null) {
-        for (State.database.body.entries.items, 0..) |*entry, i| {
-            if (entry.url) |url| {
-                if (std.mem.eql(u8, url, rp.?.get())) {
-                    fetch_index = i + 1;
-                    fetch_rp = rp;
-                    fetch_ts = std.time.milliTimestamp();
-
-                    return State.credentialFromEntry(entry) catch {
-                        std.log.warn("entry with id {s} is not a credential ({any})", .{
-                            entry.uuid[0..],
-                            entry,
-                        });
-                        continue;
-                    };
-                }
-            }
-        }
-
-        std.log.warn("no entry for relying party '{s}' found", .{rp.?.get()});
-        return error.DoesNotExist;
+        return State.database.?.getCredential(&State.database.?, fetch_rp.?.get(), &fetch_index.?) catch |e| {
+            std.log.info("No entry found: {any}", .{e});
+            fetch_index = null;
+            fetch_rp = null;
+            fetch_ts = null;
+            return error.DoesNotExist;
+        };
     } else {
         // TODO
         return error.DoesNotExist;
@@ -375,89 +357,19 @@ pub fn my_read_next() CallbackError!Credential {
         return error.Other;
     }
 
-    while (State.database.body.entries.items.len > fetch_index.?) {
-        const entry = State.database.body.entries.items[fetch_index.?];
-        fetch_index.? += 1;
-
-        if (entry.url) |url| {
-            if (std.mem.eql(u8, url, fetch_rp.?.get())) {
-                return State.credentialFromEntry(&entry) catch {
-                    std.log.warn("entry with id {s} is not a credential ({any})", .{
-                        entry.uuid[0..],
-                        entry,
-                    });
-                    continue;
-                };
-            }
-        }
-    }
-
-    std.log.info("my_read_next: no entry found", .{});
-    fetch_index = null;
-    fetch_rp = null;
-    fetch_ts = null;
-    return error.DoesNotExist;
+    return State.database.?.getCredential(&State.database.?, fetch_rp.?.get(), &fetch_index.?) catch |e| {
+        std.log.info("No entry found: {any}", .{e});
+        fetch_index = null;
+        fetch_rp = null;
+        fetch_ts = null;
+        return error.DoesNotExist;
+    };
 }
 
 pub fn my_write(
     data: Credential,
 ) CallbackError!void {
-    var e = if (State.database.body.getEntryById(data.id.get())) |e| e else blk: {
-        var e = State.database.body.newEntry() catch {
-            std.log.err("unable to create new entry", .{});
-            return error.Other;
-        };
-        // We use the uuid generated by keylib as uuid for our entry.
-        @memcpy(e.uuid[0..], data.id.get());
-        break :blk e;
-    };
-
-    // update user
-    e.setUser(.{
-        .id = data.user.id.get(),
-        .name = if (data.user.name) |name| name.get() else null,
-        .display_name = if (data.user.displayName) |name| name.get() else null,
-    }) catch {
-        std.log.err("unable to update name of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-
-    // update rp
-    e.setUrl(data.rp.id.get()) catch {
-        std.log.err("unable to update url of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-
-    e.times.cnt = data.sign_count;
-
-    e.setKey(data.key);
-
-    if (e.tags) |tags| {
-        for (tags, 0..) |tag, i| {
-            if (tag.len < 8) continue;
-            if (!std.mem.eql(u8, "policy:", tag[0..7])) continue;
-
-            e.removeTag(i);
-
-            break;
-        }
-    }
-
-    const p = std.fmt.allocPrint(allocator, "policy:{s}", .{
-        data.policy.toString(),
-    }) catch {
-        std.log.err("unable to allocate memory for policy of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-    defer allocator.free(p);
-
-    e.addTag(p) catch {
-        std.log.err("unable to update policy of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-
-    // persist data
-    State.writeDb(allocator) catch {
+    State.database.?.setCredential(&State.database.?, data) catch {
         return error.Other;
     };
 }
@@ -470,7 +382,9 @@ pub fn my_delete(
 }
 
 pub fn my_read_settings() Meta {
-    return Meta{};
+    return Meta{
+        .always_uv = true,
+    };
 }
 
 pub fn my_write_settings(data: Meta) void {
