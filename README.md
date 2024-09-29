@@ -36,7 +36,7 @@ This project is installed by running the following command in your terminal.
 ### Beta
 
 ```
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install-0.3.0-beta.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install-beta.sh)"
 ```
 
 > [!NOTE]
