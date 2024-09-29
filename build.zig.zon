@@ -1,6 +1,6 @@
 .{
     .name = "keypass",
-    .version = "0.3.0",
+    .version = "0.3.1",
     .dependencies = .{
         .keylib = .{
             .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.5.1.tar.gz",
