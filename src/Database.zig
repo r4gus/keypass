@@ -37,7 +37,7 @@ save: *const fn (*const Self, std.mem.Allocator) Error!void,
 
 getCredential: *const fn (
     *const Self,
-    rpId: []const u8,
+    rpId: ?[]const u8,
     idx: *usize,
 ) Error!Credential,
 

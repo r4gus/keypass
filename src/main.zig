@@ -36,13 +36,15 @@ pub fn main() !void {
         // The commands map from a command code to a command function. All functions have the
         // same interface and you can implement your own to extend the authenticator beyond
         // the official spec, e.g. add a command to store passwords.
-        //.commands = &.{
-        //    .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
-        //    .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
-        //    .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
-        //    .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
-        //    //.{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
-        //},
+        .commands = &.{
+            .{ .cmd = 0x01, .cb = keylib.ctap.commands.authenticator.authenticatorMakeCredential },
+            .{ .cmd = 0x02, .cb = keylib.ctap.commands.authenticator.authenticatorGetAssertion },
+            .{ .cmd = 0x04, .cb = keylib.ctap.commands.authenticator.authenticatorGetInfo },
+            .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
+            .{ .cmd = 0x08, .cb = keylib.ctap.commands.authenticator.authenticatorGetNextAssertion },
+            .{ .cmd = 0x0a, .cb = @import("cred_mgmt.zig").authenticatorCredentialManagement },
+            .{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
+        },
         // The settings are returned by a getInfo request and describe the capabilities
         // of your authenticator. Make sure your configuration is valid based on the
         // CTAP2 spec!
@@ -58,7 +60,7 @@ pub fn main() !void {
                 // We don't support the credential management command. If you want to
                 // then you need to implement it yourself and add it to commands and
                 // set this flag to true.
-                .credMgmt = false,
+                .credMgmt = true,
                 // We support discoverable credentials, a.k.a resident keys, a.k.a passkeys
                 .rk = true,
                 // We support built in user verification (see the callback below)

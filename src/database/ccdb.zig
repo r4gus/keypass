@@ -80,7 +80,7 @@ fn save(self: *const TDatabase, a: std.mem.Allocator) TDatabase.Error!void {
 
 fn getCredential(
     self: *const TDatabase,
-    rpId: []const u8,
+    rp_id: ?[]const u8,
     idx: *usize,
 ) TDatabase.Error!Credential {
     const db = @as(*ccdb.Db, @alignCast(@ptrCast(self.db.?)));
@@ -89,16 +89,26 @@ fn getCredential(
         const entry = db.body.entries.items[idx.*];
         idx.* += 1;
 
-        if (entry.url) |url| {
-            if (std.mem.eql(u8, url, rpId)) {
-                return credentialFromEntry(&entry) catch {
-                    std.log.warn("Entry with id {s} is not a credential ({any})", .{
-                        entry.uuid[0..],
-                        entry,
-                    });
-                    continue;
-                };
+        if (rp_id) |rpId| {
+            if (entry.url) |url| {
+                if (std.mem.eql(u8, url, rpId)) {
+                    return credentialFromEntry(&entry) catch {
+                        std.log.warn("Entry with id {s} is not a credential ({any})", .{
+                            entry.uuid[0..],
+                            entry,
+                        });
+                        continue;
+                    };
+                }
             }
+        } else { // if no rpId is given: return every entry
+            return credentialFromEntry(&entry) catch {
+                std.log.warn("Entry with id {s} is not a credential ({any})", .{
+                    entry.uuid[0..],
+                    entry,
+                });
+                continue;
+            };
         }
     }
 
