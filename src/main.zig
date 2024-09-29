@@ -205,6 +205,7 @@ const Data = struct {
 // How you check user presence, conduct user verification or
 // store the credentials is up to you.
 // /////////////////////////////////////////
+const i18n = @import("i18n.zig");
 
 pub fn authenticatorSelection() keylib.ctap.StatusCodes {
     const r = std.process.Child.run(.{
@@ -214,8 +215,8 @@ pub fn authenticatorSelection() keylib.ctap.StatusCodes {
             "--question",
             "--window-icon=/usr/share/passkeez/passkeez.png",
             "--icon=/usr/share/passkeez/passkeez-question.png",
-            "--text=Do you want to use PassKeeZ as your authenticator?",
-            "--title=Authenticator Selection",
+            i18n.get(State.conf.lang).auth_select,
+            i18n.get(State.conf.lang).auth_select_title,
             "--timeout=15",
         },
     }) catch |e| {
@@ -280,8 +281,9 @@ pub fn my_up(
     std.log.info("up: {any}", .{State.up_result});
     if (State.up_result) |r| return r;
 
-    const text = std.fmt.allocPrint(allocator, "--text=Do you want to log in to {s}?", .{
-        if (rp) |rp_| rp_.id.get() else "Unknown Website",
+    const text = std.fmt.allocPrint(allocator, "{s} {s}", .{
+        i18n.get(State.conf.lang).user_presence,
+        if (rp) |rp_| rp_.id.get() else i18n.get(State.conf.lang).user_presence_fallback,
     }) catch |e| {
         std.log.err("up: unable to allocate memory for text ({any})", .{e});
         return UpResult.Denied;
@@ -296,7 +298,7 @@ pub fn my_up(
             "--window-icon=/usr/local/bin/passkeez/passkeez.png",
             "--icon=/usr/local/bin/passkeez/passkeez-question.png",
             text,
-            "--title=PassKeeZ: Authentication Request",
+            i18n.get(State.conf.lang).user_presence_title,
             "--timeout=30",
         },
     }) catch |e| {

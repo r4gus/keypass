@@ -2,6 +2,7 @@ const std = @import("std");
 const misc = @import("misc.zig");
 
 db_path: []const u8 = "~/.passkeez/db.ccdb",
+lang: []const u8 = "english",
 
 pub fn load(a: std.mem.Allocator) !@This() {
     var file = misc.openFile("~/.passkeez/config.json") catch {

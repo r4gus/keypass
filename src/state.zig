@@ -5,6 +5,7 @@ const Config = @import("database/Config.zig");
 const keylib = @import("keylib");
 const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
 const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
+const i18n = @import("i18n.zig");
 
 pub var conf: Config = undefined;
 
@@ -65,8 +66,9 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                 "zigenity",
                 "--password",
                 "--window-icon=/usr/share/passkeez/passkeez.png",
-                "--title=PassKeeZ: Unlock Database",
-                "--ok-label=Unlock",
+                i18n.get(conf.lang).unlock_database_title,
+                i18n.get(conf.lang).unlock_database,
+                i18n.get(conf.lang).unlock_database_ok,
                 "--timeout=60",
             },
         }) catch |e| {
@@ -101,8 +103,8 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                             "--question",
                             "--window-icon=/usr/share/passkeez/passkeez.png",
                             "--icon=/usr/share/passkeez/passkeez-error.png",
-                            "--text=Credential database decryption failed",
-                            "--title=PassKeeZ: Wrong Password",
+                            i18n.get(conf.lang).database_decryption_failed,
+                            i18n.get(conf.lang).database_decryption_failed_title,
                             "--ok-label=Ok",
                             "--switch-cancel",
                             "--timeout=15",
@@ -136,8 +138,8 @@ pub fn authenticate(a: std.mem.Allocator) !void {
                 "--question",
                 "--window-icon=/usr/share/passkeez/passkeez.png",
                 "--icon=/usr/share/passkeez/passkeez-error.png",
-                "--text=Too many incorrect password attempts",
-                "--title=PassKeeZ: Authentication failed",
+                i18n.get(conf.lang).too_many_attempts,
+                i18n.get(conf.lang).too_many_attempts_title,
                 "--ok-label=Ok",
                 "--switch-cancel",
                 "--timeout=15",

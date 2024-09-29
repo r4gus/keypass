@@ -4,6 +4,8 @@ const misc = @import("misc.zig");
 const ccdb = @import("ccdb");
 const keylib = @import("keylib");
 const Credential = keylib.ctap.authenticator.Credential;
+const i18n = @import("../i18n.zig");
+const State = @import("../state.zig");
 
 pub fn Database(
     path: []const u8,
@@ -191,8 +193,8 @@ fn createDialog(self: *TDatabase) !std.fs.File {
             "--question",
             "--window-icon=/usr/share/passkeez/passkeez.png",
             "--icon=/usr/share/passkeez/passkeez-question.png",
-            "--title=PassKeeZ: No Database",
-            "--text=Do you want to create a new passkey database?",
+            i18n.get(State.conf.lang).no_database_title,
+            i18n.get(State.conf.lang).no_database,
         },
     }) catch |e| {
         std.log.err("unable to execute zigenity ({any})", .{e});
@@ -216,9 +218,9 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                 "zigenity",
                 "--password",
                 "--window-icon=/usr/share/passkeez/passkeez.png",
-                "--title=PassKeeZ: New Database",
-                "--text=Please choose a password",
-                "--ok-label=Create",
+                i18n.get(State.conf.lang).new_database_title,
+                i18n.get(State.conf.lang).new_database,
+                i18n.get(State.conf.lang).new_database_ok,
                 "--cancel-label=Cancel",
             },
         }) catch |e| {
@@ -296,8 +298,8 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                         "--question",
                         "--window-icon=/usr/share/passkeez/passkeez.png",
                         "--icon=/usr/share/passkeez/passkeez-ok.png",
-                        "--text=Database successfully create",
-                        "--title=PassKeeZ: Success",
+                        i18n.get(State.conf.lang).database_created,
+                        i18n.get(State.conf.lang).database_created_title,
                         "--timeout=15",
                         "--switch-cancel",
                         "--ok-label=Ok",
