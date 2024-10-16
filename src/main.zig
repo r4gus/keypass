@@ -43,6 +43,7 @@ pub fn main() !void {
             .{ .cmd = 0x06, .cb = keylib.ctap.commands.authenticator.authenticatorClientPin },
             .{ .cmd = 0x08, .cb = keylib.ctap.commands.authenticator.authenticatorGetNextAssertion },
             .{ .cmd = 0x0a, .cb = @import("cred_mgmt.zig").authenticatorCredentialManagement },
+            .{ .cmd = 0x41, .cb = @import("cred_mgmt.zig").authenticatorCredentialManagement },
             .{ .cmd = 0x0b, .cb = keylib.ctap.commands.authenticator.authenticatorSelection },
         },
         // The settings are returned by a getInfo request and describe the capabilities
@@ -340,8 +341,17 @@ pub fn my_read_first(
             return error.DoesNotExist;
         };
     } else {
-        // TODO
-        return error.DoesNotExist;
+        fetch_index = 0;
+        fetch_rp = null;
+        fetch_ts = std.time.milliTimestamp();
+
+        return State.database.?.getCredential(&State.database.?, null, &fetch_index.?) catch |e| {
+            std.log.info("No entry found: {any}", .{e});
+            fetch_index = null;
+            fetch_rp = null;
+            fetch_ts = null;
+            return error.DoesNotExist;
+        };
     }
 
     return error.DoesNotExist;
@@ -349,7 +359,7 @@ pub fn my_read_first(
 
 pub fn my_read_next() CallbackError!Credential {
     std.log.info("my_read_next: fetch_ts {any}, fetch_index {any}, fetch_rp {any}", .{ fetch_ts, fetch_index, fetch_rp });
-    if (fetch_ts == null or fetch_index == null or fetch_rp == null) {
+    if (fetch_ts == null or fetch_index == null) {
         fetch_index = null;
         fetch_rp = null;
         fetch_ts = null;
@@ -357,7 +367,7 @@ pub fn my_read_next() CallbackError!Credential {
         return error.Other;
     }
 
-    return State.database.?.getCredential(&State.database.?, fetch_rp.?.get(), &fetch_index.?) catch |e| {
+    return State.database.?.getCredential(&State.database.?, if (fetch_rp) |rp| rp.get() else null, &fetch_index.?) catch |e| {
         std.log.info("No entry found: {any}", .{e});
         fetch_index = null;
         fetch_rp = null;
