@@ -4,11 +4,42 @@ const keylib = @import("keylib");
 const Request = @import("cred_mgmt/Request.zig");
 const Response = @import("cred_mgmt/Response.zig");
 
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+
 pub fn authenticatorCredentialManagement(
     auth: *keylib.ctap.authenticator.Auth,
     request: []const u8,
     out: *std.ArrayList(u8),
 ) keylib.ctap.StatusCodes {
+    const S = struct {
+        const max = 1000;
+        var i: i64 = 0;
+        var rps: ?std.ArrayList(keylib.common.RelyingParty) = null;
+        const allocator = gpa.allocator();
+
+        pub fn deinitRps() void {
+            if (rps) |_rps| {
+                _rps.deinit();
+            }
+            rps = null;
+        }
+
+        pub fn getRp() ?keylib.common.RelyingParty {
+            if (rps == null) return null;
+            if (std.time.milliTimestamp() - i > max) {
+                deinitRps();
+                return null;
+            }
+
+            const rp = rps.?.swapRemove(0);
+            if (rps.?.items.len == 0) {
+                deinitRps();
+            }
+
+            return rp;
+        }
+    };
+
     const di = cbor.DataItem.new(request) catch {
         return .ctap2_err_invalid_cbor;
     };
@@ -21,6 +52,8 @@ pub fn authenticatorCredentialManagement(
     var status: keylib.ctap.StatusCodes = .ctap1_err_success;
     const res = switch (cmReq.subCommand) {
         .getCredsMetadata => getCredsMetadata(auth, &cmReq, &status),
+        .enumerateRPsBegin => enumerateRPsBegin(auth, &cmReq, &status, S),
+        .enumerateRPsGetNextRP => enumerateRPsGetNextRP(&status, S),
         else => error.ctap2_err_other,
     } catch {
         return .ctap1_err_other;
@@ -34,6 +67,93 @@ pub fn authenticatorCredentialManagement(
     };
 
     return status;
+}
+
+pub fn enumerateRPsBegin(auth: *keylib.ctap.authenticator.Auth, req: *const Request, status: *keylib.ctap.StatusCodes, state: anytype) Response {
+    if (req.pinUvAuthParam == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.pinUvAuthProtocol == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.pinUvAuthProtocol.? != auth.token.version) {
+        status.* = .ctap1_err_invalid_parameter;
+        return .{};
+    }
+    if (!auth.token.verify_token("\x02", req.pinUvAuthParam.?.get())) {
+        status.* = .ctap2_err_pin_auth_invalid;
+        return .{};
+    }
+
+    // The authenticator verifies that the pinUvAuthToken has the cm permission and no associated
+    // permissions RP ID. If not, return CTAP2_ERR_PIN_AUTH_INVALID.
+    if (auth.token.permissions & 0x04 == 0 or auth.token.rp_id != null) {
+        status.* = .ctap2_err_pin_auth_invalid;
+        return .{};
+    }
+
+    var cred = auth.callbacks.read_first(null, null) catch {
+        // If no discoverable credentials exist on this authenticator, return CTAP2_ERR_NO_CREDENTIALS.
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    };
+
+    state.deinitRps();
+    state.rps = std.ArrayList(keylib.common.RelyingParty).init(state.allocator);
+    state.rps.?.append(cred.rp) catch {
+        state.deinitRps();
+        status.* = .ctap1_err_other;
+        return .{};
+    };
+
+    outer: while (true) {
+        cred = auth.callbacks.read_next() catch {
+            break;
+        };
+
+        const rp = cred.rp;
+
+        for (state.rps.?.items) |rp2| {
+            if (std.mem.eql(u8, rp.id.get(), rp2.id.get())) continue :outer;
+        }
+
+        state.rps.?.append(rp) catch {
+            state.deinitRps();
+            status.* = .ctap1_err_other;
+            return .{};
+        };
+    }
+
+    state.i = std.time.milliTimestamp();
+
+    const rp = state.rps.?.swapRemove(0);
+    var digest: [32]u8 = .{0} ** 32;
+    std.crypto.hash.sha2.Sha256.hash(rp.id.get(), &digest, .{});
+
+    return .{
+        .rp = rp,
+        .rpIDHash = digest,
+        .totalRPs = @as(u32, @intCast(state.rps.?.items.len + 1)),
+    };
+}
+
+pub fn enumerateRPsGetNextRP(status: *keylib.ctap.StatusCodes, state: anytype) Response {
+    const rp = state.getRp();
+
+    if (rp == null) {
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    }
+
+    var digest: [32]u8 = .{0} ** 32;
+    std.crypto.hash.sha2.Sha256.hash(rp.?.id.get(), &digest, .{});
+
+    return .{
+        .rp = rp.?,
+        .rpIDHash = digest,
+    };
 }
 
 pub fn getCredsMetadata(auth: *keylib.ctap.authenticator.Auth, req: *const Request, status: *keylib.ctap.StatusCodes) Response {
