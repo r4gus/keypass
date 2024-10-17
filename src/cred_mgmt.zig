@@ -54,6 +54,8 @@ pub fn authenticatorCredentialManagement(
         .getCredsMetadata => getCredsMetadata(auth, &cmReq, &status),
         .enumerateRPsBegin => enumerateRPsBegin(auth, &cmReq, &status, S),
         .enumerateRPsGetNextRP => enumerateRPsGetNextRP(&status, S),
+        .enumerateCredentialsBegin => enumerateCredentialsBegin(auth, &cmReq, &status, S),
+        .enumerateCredentialsGetNextCredential => enumerateCredentialsGetNextCredential(auth, &status),
         else => error.ctap2_err_other,
     } catch {
         return .ctap1_err_other;
@@ -94,7 +96,7 @@ pub fn enumerateRPsBegin(auth: *keylib.ctap.authenticator.Auth, req: *const Requ
         return .{};
     }
 
-    var cred = auth.callbacks.read_first(null, null) catch {
+    var cred = auth.callbacks.read_first(null, null, null) catch {
         // If no discoverable credentials exist on this authenticator, return CTAP2_ERR_NO_CREDENTIALS.
         status.* = .ctap2_err_no_credentials;
         return .{};
@@ -175,7 +177,7 @@ pub fn getCredsMetadata(auth: *keylib.ctap.authenticator.Auth, req: *const Reque
     }
 
     var credential_count: u32 = 1;
-    _ = auth.callbacks.read_first(null, null) catch {
+    _ = auth.callbacks.read_first(null, null, null) catch {
         credential_count -= 1;
     };
 
@@ -193,5 +195,105 @@ pub fn getCredsMetadata(auth: *keylib.ctap.authenticator.Auth, req: *const Reque
         // This number is aribitrary for the given platform authenticator
         // and always greater than zero!
         .maxPossibleRemainingResidentCredentialsCount = 100,
+    };
+}
+
+pub fn enumerateCredentialsBegin(auth: *keylib.ctap.authenticator.Auth, req: *const Request, status: *keylib.ctap.StatusCodes, state: anytype) Response {
+    if (req.pinUvAuthParam == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.pinUvAuthProtocol == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.subCommandParams == null or req.subCommandParams.?.rpIDHash == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.pinUvAuthProtocol.? != auth.token.version) {
+        status.* = .ctap1_err_invalid_parameter;
+        return .{};
+    }
+
+    var m = std.ArrayList(u8).init(state.allocator);
+    defer m.deinit();
+    m.append(0x04) catch {
+        status.* = .ctap1_err_other;
+        return .{};
+    };
+    cbor.stringify(
+        req.subCommandParams.?,
+        .{},
+        m.writer(),
+    ) catch {
+        status.* = .ctap1_err_other;
+        return .{};
+    };
+
+    if (!auth.token.verify_token(m.items, req.pinUvAuthParam.?.get())) {
+        status.* = .ctap2_err_pin_auth_invalid;
+        return .{};
+    }
+
+    if (auth.token.permissions & 0x04 == 0) {
+        status.* = .ctap2_err_pin_auth_invalid;
+        return .{};
+    }
+    if (auth.token.rp_id) |rp_id| {
+        var digest: [32]u8 = .{0} ** 32;
+        std.crypto.hash.sha2.Sha256.hash(rp_id.get(), &digest, .{});
+        if (!std.mem.eql(u8, &digest, &req.subCommandParams.?.rpIDHash.?)) {
+            status.* = .ctap2_err_pin_auth_invalid;
+            return .{};
+        }
+    }
+
+    _ = auth.callbacks.read_first(null, null, req.subCommandParams.?.rpIDHash.?) catch {
+        // If no discoverable credentials exist on this authenticator, return CTAP2_ERR_NO_CREDENTIALS.
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    };
+
+    var credential_count: u32 = 1;
+    while (true) {
+        _ = auth.callbacks.read_next() catch {
+            break;
+        };
+        credential_count += 1;
+    }
+
+    const cred = auth.callbacks.read_first(null, null, req.subCommandParams.?.rpIDHash.?) catch {
+        // If no discoverable credentials exist on this authenticator, return CTAP2_ERR_NO_CREDENTIALS.
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    };
+
+    return .{
+        .user = cred.user,
+        .credentialID = .{
+            .id = cred.id,
+            .type = .@"public-key",
+        },
+        .publicKey = cred.key,
+        .totalCredentials = credential_count,
+        .credProtect = cred.policy,
+    };
+}
+
+pub fn enumerateCredentialsGetNextCredential(auth: *keylib.ctap.authenticator.Auth, status: *keylib.ctap.StatusCodes) Response {
+    const cred = auth.callbacks.read_next() catch {
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    };
+
+    return .{
+        .user = cred.user,
+        .credentialID = .{
+            .id = cred.id,
+            .type = .@"public-key",
+        },
+        .publicKey = cred.key,
+        .credProtect = cred.policy,
     };
 }

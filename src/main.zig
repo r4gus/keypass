@@ -20,6 +20,7 @@ var initialized = false;
 
 var fetch_index: ?usize = null;
 var fetch_rp: ?dt.ABS128T = null;
+var fetch_hash: ?[32]u8 = null;
 var fetch_ts: ?i64 = null;
 
 pub fn main() !void {
@@ -322,33 +323,38 @@ pub fn my_up(
 pub fn my_read_first(
     id: ?dt.ABS64B,
     rp: ?dt.ABS128T,
+    hash: ?[32]u8,
 ) CallbackError!Credential {
     std.log.info("my_first_read:\n  id:   {s}\n  rpId: {s}", .{
         if (id) |uid| uid.get() else "n.a.",
         if (rp) |rpid| rpid.get() else "n.a.",
     });
 
-    if (rp != null) {
+    if (rp != null or hash != null) {
         fetch_index = 0;
         fetch_rp = rp;
+        fetch_hash = hash;
         fetch_ts = std.time.milliTimestamp();
 
-        return State.database.?.getCredential(&State.database.?, fetch_rp.?.get(), &fetch_index.?) catch |e| {
+        return State.database.?.getCredential(&State.database.?, if (fetch_rp) |frp| frp.get() else null, hash, &fetch_index.?) catch |e| {
             std.log.info("No entry found: {any}", .{e});
             fetch_index = null;
             fetch_rp = null;
+            fetch_hash = null;
             fetch_ts = null;
             return error.DoesNotExist;
         };
     } else {
         fetch_index = 0;
         fetch_rp = null;
+        fetch_hash = null;
         fetch_ts = std.time.milliTimestamp();
 
-        return State.database.?.getCredential(&State.database.?, null, &fetch_index.?) catch |e| {
+        return State.database.?.getCredential(&State.database.?, null, null, &fetch_index.?) catch |e| {
             std.log.info("No entry found: {any}", .{e});
             fetch_index = null;
             fetch_rp = null;
+            fetch_hash = null;
             fetch_ts = null;
             return error.DoesNotExist;
         };
@@ -362,15 +368,17 @@ pub fn my_read_next() CallbackError!Credential {
     if (fetch_ts == null or fetch_index == null) {
         fetch_index = null;
         fetch_rp = null;
+        fetch_hash = null;
         fetch_ts = null;
 
         return error.Other;
     }
 
-    return State.database.?.getCredential(&State.database.?, if (fetch_rp) |rp| rp.get() else null, &fetch_index.?) catch |e| {
+    return State.database.?.getCredential(&State.database.?, if (fetch_rp) |rp| rp.get() else null, fetch_hash, &fetch_index.?) catch |e| {
         std.log.info("No entry found: {any}", .{e});
         fetch_index = null;
         fetch_rp = null;
+        fetch_hash = null;
         fetch_ts = null;
         return error.DoesNotExist;
     };
