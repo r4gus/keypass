@@ -3,8 +3,8 @@
     .version = "0.3.2",
     .dependencies = .{
         .keylib = .{
-            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.5.1.tar.gz",
-            .hash = "12201fccf6ef9d75f6bbea08c7cc58057c609bc471296b71d70120041c938dece83d",
+            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.5.3.tar.gz",
+            .hash = "12201903acc4c49d6f5df082412cdd5b3274e6a89b7ef64d49eb2badefceee68135a",
             //.path = "../keylib",
         },
         .ccdb = .{
