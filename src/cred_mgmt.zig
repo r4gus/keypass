@@ -4,6 +4,8 @@ const keylib = @import("keylib");
 const Request = @import("cred_mgmt/Request.zig");
 const Response = @import("cred_mgmt/Response.zig");
 
+const State = @import("state.zig");
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 pub fn authenticatorCredentialManagement(
@@ -56,6 +58,7 @@ pub fn authenticatorCredentialManagement(
         .enumerateRPsGetNextRP => enumerateRPsGetNextRP(&status, S),
         .enumerateCredentialsBegin => enumerateCredentialsBegin(auth, &cmReq, &status, S),
         .enumerateCredentialsGetNextCredential => enumerateCredentialsGetNextCredential(auth, &status),
+        .deleteCredential => deleteCredential(auth, &cmReq, &status, S),
         else => error.ctap2_err_other,
     } catch {
         return .ctap1_err_other;
@@ -296,4 +299,61 @@ pub fn enumerateCredentialsGetNextCredential(auth: *keylib.ctap.authenticator.Au
         .publicKey = cred.key,
         .credProtect = cred.policy,
     };
+}
+
+pub fn deleteCredential(auth: *keylib.ctap.authenticator.Auth, req: *const Request, status: *keylib.ctap.StatusCodes, state: anytype) Response {
+    if (req.pinUvAuthParam == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.pinUvAuthProtocol == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.subCommandParams == null or req.subCommandParams.?.credentialID == null) {
+        status.* = .ctap2_err_missing_parameter;
+        return .{};
+    }
+    if (req.pinUvAuthProtocol.? != auth.token.version) {
+        status.* = .ctap1_err_invalid_parameter;
+        return .{};
+    }
+
+    var m = std.ArrayList(u8).init(state.allocator);
+    defer m.deinit();
+    m.append(0x06) catch {
+        status.* = .ctap1_err_other;
+        return .{};
+    };
+    cbor.stringify(
+        req.subCommandParams.?,
+        .{},
+        m.writer(),
+    ) catch {
+        status.* = .ctap1_err_other;
+        return .{};
+    };
+
+    if (!auth.token.verify_token(m.items, req.pinUvAuthParam.?.get())) {
+        status.* = .ctap2_err_pin_auth_invalid;
+        return .{};
+    }
+
+    if (auth.token.permissions & 0x04 == 0) {
+        status.* = .ctap2_err_pin_auth_invalid;
+        return .{};
+    }
+
+    const id = req.subCommandParams.?.credentialID.?.id.get();
+    if (id.len != 36) {
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    }
+
+    State.database.?.deleteCredential(&State.database.?, id[0..36].*) catch {
+        status.* = .ctap2_err_no_credentials;
+        return .{};
+    };
+
+    return .{};
 }

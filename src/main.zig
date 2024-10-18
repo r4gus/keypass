@@ -396,6 +396,8 @@ pub fn my_delete(
     id: [*c]const u8,
 ) callconv(.C) Error {
     _ = id;
+    // TODO: remove this from keylib!
+
     return Error.Other;
 }
 

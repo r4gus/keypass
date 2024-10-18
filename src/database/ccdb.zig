@@ -21,6 +21,7 @@ pub fn Database(
         .save = save,
         .getCredential = getCredential,
         .setCredential = setCredential,
+        .deleteCredential = deleteCredential,
     };
 }
 
@@ -77,6 +78,23 @@ fn save(self: *const TDatabase, a: std.mem.Allocator) TDatabase.Error!void {
     misc.writeFile(self.path, raw, a) catch |e| {
         std.log.err("Cannot to save database: {any}", .{e});
         return error.DatabaseError;
+    };
+}
+
+fn deleteCredential(
+    self: *const TDatabase,
+    id: [36]u8,
+) TDatabase.Error!void {
+    const db = @as(*ccdb.Db, @alignCast(@ptrCast(self.db.?)));
+
+    db.body.deleteEntryById(id) catch |e| {
+        std.log.err("Cannot to delete entry with id: {s} ({any})", .{ id, e });
+        return error.DoesNotExist;
+    };
+
+    // persist data
+    save(self, self.allocator) catch {
+        return error.Other;
     };
 }
 

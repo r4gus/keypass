@@ -46,3 +46,8 @@ setCredential: *const fn (
     *const Self,
     data: Credential,
 ) Error!void,
+
+deleteCredential: *const fn (
+    *const Self,
+    id: [36]u8,
+) Error!void,
