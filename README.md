@@ -1,10 +1,8 @@
 # PassKeeZ
 
-> I'm currently moving this application and some of its dependencies to the Zig-Sec organization on Github. This means that builds will probably fail as the URIs for the packages have changed. You can find pre-compiled binaries for PassKeeZ version 0.4.0 under Releases. Stay tuned!
+PassKeeZ is a Passkey (FIDO2) compatible authenticator for Linux based on [keylib](https://github.com/r4gus/keylib).
 
-A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://github.com/r4gus/keylib).
-
-The project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
+The project currently supports only Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
 
 | Browser | Supported? | Tested version| Notes |
 |:-------:|:----------:|:-------------:|:-----:|
@@ -21,45 +19,56 @@ The project exclusively supports Linux due to the absence of a standardized API 
 
 ## Features
 
-* Works with all services that support Passkeys
-* Store your Passkeys (just a private key + related data) in a local, encrypted database
+* Works with all services that support Passkeys.
+* Store your Passkeys (just a private key + related data) in a local, encrypted database. Choose either the KDBX (KeePassXC, ...) or CCDB database format.
 * Constant sign-counter, i.e. you can safely sync your credentials/passkeys between devices.
 
-> [!NOTE]
-> The release of version 0.3.0 removed the GUI. This means that you need version 0.2.5 if
-> you want to delete credentials. A upcoming update will add credential management, which
-> should also allow to modify credentials using a tool like `fido2-token`. The overall goal
-> is to write a dedicated tool that allows the configuration of PassKeeZ via official commands.
+> [!IMPORTANT]
+> KDBX support has been added with version 0.5.0. The advantage of using KDBX is that you can manage your passkeys using KeePass or KeePassXC (PassKeeZ uses the same format for storing passkeys as KeePassXC). If you run into issues please open an issue.
 
 ## Install
 
 This project is installed by running the following command in your terminal.
 
-### Beta
+### Linux
 
+#### Manual Installation
+
+1. Download the pre-built binaries for `passkeez` and `zigenity` and move them to `/usr/local/bin` (you need to rename them).
+2. Create the following directory if it does not already exist `~/.local/share/systemd/user` and add the [passkeez.service](https://github.com/Zig-Sec/PassKeeZ/blob/master/script/passkeez.service) file. With this change you can run the following commands:
+    - `systemctl --user enable passkeez.service`: enable PassKeeZ to start automatically
+    - `systemctl --user disable passkeez.service`: disable PassKeeZ to start automatically
+    - `systemctl --user start passkeez.service`: start PassKeeZ in the background
+    - `systemctl --user stop passkeez.service`: stop PassKeeZ
+    - `systemctl --user status passkeez.service`: get the status of the PassKeeZ process
+3. Add yourself to the `fido` group and enable the `uhid` module:
+```bash
+# Create a new group called fido
+getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
+
+# Add uhid to the list of modules to load during boot
+echo "uhid" > /etc/modules-load.d/fido.conf
+
+# Create a udev rule that allows all users that belong to the group fido to access /dev/uhid
+echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.rules
+udevadm control --reload-rules && udevadm trigger
 ```
+4. Create the `~/.passkeez` folder if it does not exist and add a `config.json` file with the following content: `{"db_path":"~/.passkeez/passkeez.kdbx", "lang":"english"}`.
+    - PassKeeZ supports the KDBX (KeePassXC, KeePass, ...) version 4 and Cbor Credential Database format. To use KDBX specify a path to a file with the ending `.kdbx` and for CCDB to a file with the ending `.ccdb`.
+    - PassKeeZ currently supports `english` and `german`.
+
+#### Script
+
+Run the following script to install PassKeeZ automatically:
+
+```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install-beta.sh)"
 ```
 
-> [!NOTE]
-> The following dependencies are required:
-> * `curl`
-> * `git`
-> * `libgtk-3-0`
-
-The script will make the following modifications:
-* `PassKeeZ` is installed to `/usr/local/bin`
-* `zigenity` (used for the user interface) is installed to `/usr/local/bin`
-* The user is added to the `fido` group
-* A udev rule is copied to `/etc/udev/rules.d/90-uinput.rules`
-* The `uhid` module is added to `/etc/modules-load.d/fido.conf`
-
-> [!NOTE]
-> Databases generated by older versions are not compatible.
-
 ### Database Management
 
-Currently the only way to manage your Credentials is by using the [CCDB command line application](https://github.com/r4gus/ccdb).
+- KDBX: You can manage your `.kdbx` database with [KeePassXC](https://keepassxc.org/).
+- CCDB: Currently the only way to manage your Credentials is by using the [CCDB command line application](https://github.com/r4gus/ccdb).
 
 ### File synchronization
 
@@ -69,17 +78,13 @@ You can synchronize your database files using a service like [Syncthing](https:/
 
 Please see the [Getting Started guide](https://docs.syncthing.net/intro/getting-started.html) on how to setup Syncthing on your device. Make sure you also setup Syncthing to [startup automatically](https://docs.syncthing.net/users/autostart.html#linux), to prevent a situation where your databases are out of sync.
 
-> NOTE: For now, please make sure that you don't have the same database open on multiple devices simultaneously.
-
 ## Contributing
 
-Currently this application and the surrounding infrastructure 
-([keylib](https://github.com/r4gus/keylib), [zbor](https://github.com/r4gus/zbor), [tresor](https://github.com/r4gus/tresor))
-is only maintained by me. One exception is the graphics library [dvui](https://github.com/david-vanderson/dvui) I use for the frontend.
+Currently this application and the surrounding infrastructure is only maintained by me. One exception is the graphics library [dvui](https://github.com/david-vanderson/dvui) I use for the frontend (zigenity).
 
 If you find a bug or want to help out, feel free to either open a issue for one of the mentioned projects or write me a mail.
 
-All contributions are wellcome! Including:
+All contributions are welcome! Including:
 
 * Bug fixes
 * Documentation
