@@ -61,9 +61,13 @@ udevadm control --reload-rules && udevadm trigger
 
 Run the following script to install PassKeeZ automatically:
 
+<!--
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/r4gus/keypass/master/script/install-beta.sh)"
 ```
+-->
+
+Comming soon...
 
 ### Database Management
 
