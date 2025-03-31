@@ -1,5 +1,7 @@
 # PassKeeZ
 
+> I'm currently moving this application and some of its dependencies to the Zig-Sec organization on Github. This means that builds will probably fail as the URIs for the packages have changed. You can find pre-compiled binaries for PassKeeZ version 0.4.0 under Releases. Stay tuned!
+
 A FIDO2/ Passkey compatible authenticator for Linux based on [keylib](https://github.com/r4gus/keylib).
 
 The project exclusively supports Linux due to the absence of a standardized API for interprocess communication (IPC) between the client and authenticator. As a workaround, platform authenticators on Linux act as virtual USB HID devices utilizing uhid. However, extending this functionality to other platforms remains unexplored as I haven't had the opportunity to investigate the equivalent mechanisms elsewhere.
