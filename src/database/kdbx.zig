@@ -1,11 +1,13 @@
 const std = @import("std");
 const TDatabase = @import("../Database.zig");
 const misc = @import("misc.zig");
-const ccdb = @import("ccdb");
+const kdbx = @import("kdbx");
 const keylib = @import("keylib");
 const Credential = keylib.ctap.authenticator.Credential;
 const i18n = @import("../i18n.zig");
 const State = @import("../state.zig");
+const Uuid = @import("uuid");
+const cbor = @import("zbor");
 
 pub fn Database(
     path: []const u8,
@@ -42,23 +44,32 @@ fn init(self: *TDatabase) TDatabase.Error!void {
     const mem = file.readToEndAlloc(self.allocator, 50_000_000) catch return error.FileError;
     defer self.allocator.free(mem);
 
-    const db = try self.allocator.create(ccdb.Db);
+    var fbs = std.io.fixedBufferStream(mem);
+    const reader = fbs.reader();
+
+    const db = try self.allocator.create(kdbx.Database);
     errdefer self.allocator.destroy(db);
 
-    db.* = ccdb.Db.open(
-        mem,
-        self.allocator,
-        std.time.milliTimestamp,
-        std.crypto.random,
-        self.pw,
-    ) catch return error.DatabaseError;
+    const db_key = kdbx.DatabaseKey{
+        .password = try self.allocator.dupe(u8, self.pw),
+        .allocator = self.allocator,
+    };
+    defer db_key.deinit();
+
+    db.* = kdbx.Database.open(reader, .{
+        .allocator = self.allocator,
+        .key = db_key,
+    }) catch |e| {
+        std.log.err("unable to decrypt database {any}", .{e});
+        return error.DatabaseError;
+    };
 
     self.db = db;
 }
 
 fn deinit(self: *const TDatabase) void {
     if (self.db) |db| {
-        var db_ = @as(*ccdb.Db, @alignCast(@ptrCast(db)));
+        var db_ = @as(*kdbx.Database, @alignCast(@ptrCast(db)));
         db_.deinit();
     }
     self.allocator.free(self.path);
@@ -66,16 +77,27 @@ fn deinit(self: *const TDatabase) void {
 }
 
 fn save(self: *const TDatabase, a: std.mem.Allocator) TDatabase.Error!void {
-    var db = @as(*ccdb.Db, @alignCast(@ptrCast(self.db.?)));
-    const raw = db.seal(a) catch |e| {
+    var db = @as(*kdbx.Database, @alignCast(@ptrCast(self.db.?)));
+
+    var raw = std.ArrayList(u8).init(a);
+    defer raw.deinit();
+
+    const db_key = kdbx.DatabaseKey{
+        .password = try self.allocator.dupe(u8, self.pw),
+        .allocator = self.allocator,
+    };
+    defer db_key.deinit();
+
+    db.save(
+        raw.writer(),
+        db_key,
+        a,
+    ) catch |e| {
         std.log.err("Cannot to seal database: {any}", .{e});
         return error.DatabaseError;
     };
-    defer {
-        @memset(raw, 0);
-        a.free(raw);
-    }
-    misc.writeFile(self.path, raw, a) catch |e| {
+
+    misc.writeFile(self.path, raw.items, a) catch |e| {
         std.log.err("Cannot to save database: {any}", .{e});
         return error.DatabaseError;
     };
@@ -83,14 +105,15 @@ fn save(self: *const TDatabase, a: std.mem.Allocator) TDatabase.Error!void {
 
 fn deleteCredential(
     self: *const TDatabase,
-    id: [36]u8,
+    urn: [36]u8,
 ) TDatabase.Error!void {
-    const db = @as(*ccdb.Db, @alignCast(@ptrCast(self.db.?)));
+    const db = @as(*kdbx.Database, @alignCast(@ptrCast(self.db.?)));
 
-    db.body.deleteEntryById(id) catch |e| {
-        std.log.err("Cannot to delete entry with id: {s} ({any})", .{ id, e });
-        return error.DoesNotExist;
-    };
+    const grp = db.body.root.getGroupByName("Passkeys") orelse return;
+    const id = Uuid.urn.deserialize(&urn) catch return;
+
+    const e1 = grp.removeEntryByUuid(id);
+    if (e1) |e1_| e1_.deinit();
 
     // persist data
     save(self, self.allocator) catch {
@@ -104,46 +127,36 @@ fn getCredential(
     rp_id_hash: ?[32]u8,
     idx: *usize,
 ) TDatabase.Error!Credential {
-    const db = @as(*ccdb.Db, @alignCast(@ptrCast(self.db.?)));
+    const db: *kdbx.Database = @as(*kdbx.Database, @alignCast(@ptrCast(self.db.?)));
 
-    while (db.body.entries.len > idx.*) {
-        const entry = db.body.entries[idx.*];
+    const grp = db.body.root.getGroupByName("Passkeys") orelse return error.DatabaseError;
+    while (grp.entries.items.len > idx.*) {
+        const entry = grp.entries.items[idx.*];
         idx.* += 1;
 
+        if (!entry.isValidKeePassXCPasskey()) continue;
+
         if (rp_id) |rpId| {
-            if (entry.url) |url| {
-                if (std.mem.eql(u8, url, rpId)) {
-                    return credentialFromEntry(&entry) catch {
-                        std.log.warn("Entry with id {s} is not a credential ({any})", .{
-                            entry.uuid[0..],
-                            entry,
-                        });
-                        continue;
-                    };
-                }
+            if (std.mem.eql(u8, entry.get("KPEX_PASSKEY_RELYING_PARTY").?, rpId)) {
+                return credentialFromEntry(&entry) catch {
+                    std.log.warn("Entry with is not a KeePassXC passkey", .{});
+                    continue;
+                };
             }
         } else if (rp_id_hash) |hash| {
             var digest: [32]u8 = .{0} ** 32;
+            const url = entry.get("KPEX_PASSKEY_RELYING_PARTY").?;
+            std.crypto.hash.sha2.Sha256.hash(url, &digest, .{});
 
-            if (entry.url) |url| {
-                std.crypto.hash.sha2.Sha256.hash(url, &digest, .{});
-
-                if (std.mem.eql(u8, &hash, &digest)) {
-                    return credentialFromEntry(&entry) catch {
-                        std.log.warn("Entry with id {s} is not a credential ({any})", .{
-                            entry.uuid[0..],
-                            entry,
-                        });
-                        continue;
-                    };
-                }
+            if (std.mem.eql(u8, &hash, &digest)) {
+                return credentialFromEntry(&entry) catch {
+                    std.log.warn("Entry with is not a KeePassXC passkey", .{});
+                    continue;
+                };
             }
-        } else { // if no rpId is given: return every entry
+        } else {
             return credentialFromEntry(&entry) catch {
-                std.log.warn("Entry with id {s} is not a credential ({any})", .{
-                    entry.uuid[0..],
-                    entry,
-                });
+                std.log.warn("Entry with is not a KeePassXC passkey", .{});
                 continue;
             };
         }
@@ -156,61 +169,46 @@ fn setCredential(
     self: *const TDatabase,
     data: Credential,
 ) TDatabase.Error!void {
-    const db = @as(*ccdb.Db, @alignCast(@ptrCast(self.db.?)));
+    const db: *kdbx.Database = @as(*kdbx.Database, @alignCast(@ptrCast(self.db.?)));
 
-    var e = if (db.body.getEntryById(data.id.get())) |e| e else blk: {
-        var e = db.body.newEntry() catch {
+    const grp = db.body.root.getGroupByName("Passkeys") orelse return error.DatabaseError;
+    const id = Uuid.urn.deserialize(data.id.get()) catch {
+        std.log.err("The entry id {s} is not a UUID", .{data.id.get()});
+        return error.Other;
+    };
+
+    const e = if (grp.getEntryById(id)) |e| e else blk: {
+        const e = grp.createEntry() catch {
             std.log.err("unable to create new entry", .{});
             return error.Other;
         };
         // We use the uuid generated by keylib as uuid for our entry.
-        @memcpy(e.uuid[0..], data.id.get());
+        e.uuid = id;
         break :blk e;
     };
-
-    // update user
-    e.setUser(.{
-        .id = data.user.id.get(),
-        .name = if (data.user.name) |name| name.get() else null,
-        .display_name = if (data.user.displayName) |name| name.get() else null,
-    }) catch {
-        std.log.err("unable to update name of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-
-    // update rp
-    e.setUrl(data.rp.id.get()) catch {
-        std.log.err("unable to update url of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-
-    e.times.cnt = data.sign_count;
-
-    e.setKey(data.key);
-
-    if (e.tags) |tags| {
-        for (tags, 0..) |tag, i| {
-            if (tag.len < 8) continue;
-            if (!std.mem.eql(u8, "policy:", tag[0..7])) continue;
-
-            e.removeTag(i);
-
-            break;
-        }
+    errdefer {
+        const e_ = grp.removeEntryByUuid(id);
+        if (e_) |e__| e__.deinit();
     }
 
-    const p = std.fmt.allocPrint(self.allocator, "policy:{s}", .{
-        data.policy.toString(),
-    }) catch {
-        std.log.err("unable to allocate memory for policy of entry with id {s}", .{data.id.get()});
-        return error.Other;
-    };
-    defer self.allocator.free(p);
+    const pem_key = switch (data.key) {
+        .P256 => |k| blk: {
+            if (k.alg != .Es256) return error.InvalidCipherSuite;
+            const priv = std.crypto.sign.ecdsa.EcdsaP256Sha256.SecretKey.fromBytes(k.d.?) catch return error.Other;
+            const kp = std.crypto.sign.ecdsa.EcdsaP256Sha256.KeyPair.fromSecretKey(priv) catch return error.Other;
 
-    e.addTag(p) catch {
-        std.log.err("unable to update policy of entry with id {s}", .{data.id.get()});
-        return error.Other;
+            const pem_key = try kdbx.pem.pemFromKey(kp, self.allocator);
+            break :blk pem_key;
+        },
     };
+    defer self.allocator.free(pem_key);
+
+    try e.setKeePassXCPasskeyValues(
+        data.rp.id.get(),
+        if (data.user.name) |name| name.get() else "",
+        data.user.id.get(),
+        pem_key,
+    );
 
     // persist data
     save(self, self.allocator) catch {
@@ -303,25 +301,44 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                 };
                 errdefer f_db.close();
 
-                var store = ccdb.Db.new("PassKeeZ", "Passkeys", .{}, self.allocator) catch |e| {
+                var database = kdbx.Database.new(.{
+                    .generator = "PassKeeZ",
+                    .name = "PassKeeZ Database",
+                    .allocator = self.allocator,
+                }) catch |e| {
                     std.log.err("Cannot create database: {any}", .{e});
                     return error.DatabaseError;
                 };
-                defer store.deinit();
-                store.setKey(pw1) catch |e| {
-                    std.log.err("Cannot set database key: {any}", .{e});
+                defer database.deinit();
+
+                const grp = kdbx.Group.new("Passkeys", self.allocator) catch |e| {
+                    std.log.err("Cannot create group: {any}", .{e});
                     return error.DatabaseError;
                 };
-                const raw = store.seal(self.allocator) catch |e| {
+                database.body.root.addGroup(grp) catch |e| {
+                    std.log.err("Cannot create group: {any}", .{e});
+                    return error.DatabaseError;
+                };
+
+                const db_key = kdbx.DatabaseKey{
+                    .password = try self.allocator.dupe(u8, pw1),
+                    .allocator = self.allocator,
+                };
+                defer db_key.deinit();
+
+                var raw = std.ArrayList(u8).init(self.allocator);
+                defer raw.deinit();
+
+                database.save(
+                    raw.writer(),
+                    db_key,
+                    self.allocator,
+                ) catch |e| {
                     std.log.err("Cannot seal database: {any}", .{e});
                     return error.DatabaseError;
                 };
-                defer {
-                    @memset(raw, 0);
-                    self.allocator.free(raw);
-                }
 
-                f_db.writer().writeAll(raw) catch |e| {
+                f_db.writer().writeAll(raw.items) catch |e| {
                     std.log.err("Cannot write to database: {any}", .{e});
                     return error.DatabaseError;
                 };
@@ -355,33 +372,32 @@ fn createDialog(self: *TDatabase) !std.fs.File {
     }
 }
 
-pub fn credentialFromEntry(entry: *const ccdb.Entry) !keylib.ctap.authenticator.Credential {
-    if (entry.user == null) return error.MissingUser;
-    if (entry.url == null) return error.MissingRelyingParty;
-    if (entry.key == null) return error.MissingKey;
-    if (entry.tags == null) return error.MissingPolicy;
+fn credentialFromEntry(entry: *const kdbx.Entry) !keylib.ctap.authenticator.Credential {
+    // we have already verified that this is a valid KeePassXC passkey
+    var buffer: [4096]u8 = .{0} ** 4096;
+    var fba = std.heap.FixedBufferAllocator.init(&buffer);
+    const allocator = fba.allocator();
 
-    const policy = blk: for (entry.tags.?) |tag| {
-        if (tag.len < 8) continue;
-        if (!std.mem.eql(u8, "policy:", tag[0..7])) continue;
+    const pem_key = entry.get("KPEX_PASSKEY_PRIVATE_KEY_PEM").?;
+    const k_ = kdbx.pem.asymmetricKeyPairFromPem(pem_key, allocator) catch return error.InvalidKey;
 
-        if (keylib.ctap.extensions.CredentialCreationPolicy.fromString(tag[7..])) |p| {
-            break :blk p;
-        } else {
-            return error.MissingPolicy;
-        }
-    } else {
-        return error.MissingPolicy;
+    const k = switch (k_) {
+        .EcdsaP256Sha256 => |k| cbor.cose.Key.fromP256PrivPub(.Es256, k.secret_key, k.public_key),
     };
 
+    const cred_id = entry.get("KPEX_PASSKEY_CREDENTIAL_ID").?;
+    const user_name = entry.get("KPEX_PASSKEY_USERNAME").?;
+    const user_handle = entry.get("KPEX_PASSKEY_USER_HANDLE").?;
+    const rp_id = entry.get("KPEX_PASSKEY_RELYING_PARTY").?;
+
     return .{
-        .id = (try keylib.common.dt.ABS64B.fromSlice(entry.uuid[0..])).?,
-        .user = try keylib.common.User.new(entry.user.?.id.?, entry.user.?.name, entry.user.?.display_name),
-        .rp = try keylib.common.RelyingParty.new(entry.url.?, null),
-        .sign_count = if (entry.times.cnt) |cnt| cnt else 0,
-        .key = entry.key.?,
-        .created = entry.times.creat,
+        .id = (try keylib.common.dt.ABS64B.fromSlice(cred_id)).?,
+        .user = try keylib.common.User.new(user_handle, user_name, user_name),
+        .rp = try keylib.common.RelyingParty.new(rp_id, null),
+        .sign_count = 0,
+        .key = k,
+        .created = 0,
         .discoverable = true,
-        .policy = policy,
+        .policy = .userVerificationOptional,
     };
 }

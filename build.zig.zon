@@ -1,16 +1,23 @@
 .{
-    .name = "keypass",
+    .name = .passkeez,
     .version = "0.5.0",
+    .fingerprint = 0xdd1692d15d21a6f6,
     .dependencies = .{
         .keylib = .{
-            .url = "https://github.com/r4gus/keylib/archive/refs/tags/0.6.0.tar.gz",
-            .hash = "1220017b7790baa2e2cb035fb925f56b21416d8de8d7e1b72379bc38d06c4eb3c8bf",
-            //.path = "../keylib",
+            .url = "https://github.com/Zig-Sec/keylib/archive/refs/tags/0.6.1.tar.gz",
+            .hash = "keylib-0.6.1-mbYjk9-WCQBOqB9oq2ZqWQFeWI2HwuBEuPgL-wkJDHTg",
+        },
+        .kdbx = .{
+            .url = "https://github.com/Zig-Sec/kdbx/archive/refs/tags/0.1.1.tar.gz",
+            .hash = "kdbx-0.1.1-eJXZBIysCgCWP6t03J0luSrYdP742K2W_WEv49Vy3xku",
+        },
+        .uuid = .{
+            .url = "https://github.com/r4gus/uuid-zig/archive/refs/tags/0.3.1.tar.gz",
+            .hash = "uuid-0.3.0-oOieIYF1AAA_BtE7FvVqqTn5uEYTvvz7ycuVnalCOf8C",
         },
         .ccdb = .{
-            .url = "https://github.com/r4gus/ccdb/archive/refs/tags/0.3.0.tar.gz",
-            .hash = "1220daa627976dd6c523ec44d3ca782fee5eee5f20ed01a04a4dead63f04ad69ea50",
-            //.path = "../ccdb",
+            .url = "https://github.com/r4gus/ccdb/archive/refs/tags/0.3.1.tar.gz",
+            .hash = "ccdb-0.3.2-mrOGYn4KDgC0cJl4CKpKaJB95wwIlHegHLV7NSbMYXu0",
         },
     },
     .paths = .{

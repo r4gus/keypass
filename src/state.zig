@@ -85,13 +85,48 @@ pub fn authenticate(a: std.mem.Allocator) !void {
 
         switch (password.term.Exited) {
             0 => {
-                var db = Database.ccdb.Database(
-                    conf.db_path,
-                    password.stdout[0 .. password.stdout.len - 1],
-                    a,
-                ) catch {
-                    std.log.err("unable to instantiate Database", .{});
-                    continue :outer;
+                var db = if (std.mem.containsAtLeast(u8, conf.db_path, 1, ".ccdb")) blk: {
+                    break :blk Database.ccdb.Database(
+                        conf.db_path,
+                        password.stdout[0 .. password.stdout.len - 1],
+                        a,
+                    ) catch {
+                        std.log.err("unable to instantiate Database", .{});
+                        continue :outer;
+                    };
+                } else if (std.mem.containsAtLeast(u8, conf.db_path, 1, ".kdbx")) blk: {
+                    break :blk Database.kdbx.Database(
+                        conf.db_path,
+                        password.stdout[0 .. password.stdout.len - 1],
+                        a,
+                    ) catch {
+                        std.log.err("unable to instantiate Database", .{});
+                        continue :outer;
+                    };
+                } else {
+                    std.log.err("unsupported database {s}", .{conf.db_path});
+                    const r = std.process.Child.run(.{
+                        .allocator = a,
+                        .argv = &.{
+                            "zigenity",
+                            "--question",
+                            "--window-icon=/usr/share/passkeez/passkeez.png",
+                            "--icon=/usr/share/passkeez/passkeez-error.png",
+                            "Unable to open the configured database.",
+                            "Invalid database format",
+                            "--ok-label=Ok",
+                            "--switch-cancel",
+                            "--timeout=15",
+                        },
+                    }) catch |e2| {
+                        std.log.err("unable to execute zigenity ({any})", .{e2});
+                        return e2;
+                    };
+                    defer {
+                        a.free(r.stdout);
+                        a.free(r.stderr);
+                    }
+                    return error.Failed;
                 };
 
                 db.init(&db) catch |e| {

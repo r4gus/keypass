@@ -22,14 +22,14 @@ pub fn cborStringify(self: *const @This(), options: cbor.Options, out: anytype) 
             .{ .name = "pinUvAuthProtocol", .field_options = .{ .alias = "3", .serialization_type = .Integer }, .value_options = .{ .enum_serialization_type = .Integer } },
             .{ .name = "pinUvAuthParam", .field_options = .{ .alias = "4", .serialization_type = .Integer } },
         },
-        .from_callback = true,
+        .ignore_override = true,
     }, out);
 }
 
 pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
     return try cbor.parse(@This(), item, .{
         .allocator = options.allocator,
-        .from_callback = true, // prevent infinite loops
+        .ignore_override = true, // prevent infinite loops
         .field_settings = &.{
             .{ .name = "subCommand", .field_options = .{ .alias = "1", .serialization_type = .Integer }, .value_options = .{ .enum_serialization_type = .Integer } },
             .{ .name = "subCommandParams", .field_options = .{ .alias = "2", .serialization_type = .Integer } },
@@ -78,14 +78,14 @@ pub const SubCommandParams = struct {
                 .{ .name = "credentialID", .field_options = .{ .alias = "2", .serialization_type = .Integer } },
                 .{ .name = "user", .field_options = .{ .alias = "3", .serialization_type = .Integer } },
             },
-            .from_callback = true,
+            .ignore_override = true,
         }, out);
     }
 
     pub fn cborParse(item: cbor.DataItem, options: cbor.Options) !@This() {
         return try cbor.parse(@This(), item, .{
             .allocator = options.allocator,
-            .from_callback = true, // prevent infinite loops
+            .ignore_override = true, // prevent infinite loops
             .field_settings = &.{
                 .{ .name = "rpIDHash", .field_options = .{ .alias = "1", .serialization_type = .Integer } },
                 .{ .name = "credentialID", .field_options = .{ .alias = "2", .serialization_type = .Integer } },

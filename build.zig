@@ -14,6 +14,16 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const kdbx_dep = b.dependency("kdbx", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const uuid_dep = b.dependency("uuid", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "passkeez",
         .root_source_file = b.path("src/main.zig"),
@@ -24,6 +34,8 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("uhid", keylib_dep.module("uhid"));
     exe.root_module.addImport("zbor", keylib_dep.module("zbor"));
     exe.root_module.addImport("ccdb", ccdb_dep.module("ccdb"));
+    exe.root_module.addImport("kdbx", kdbx_dep.module("kdbx"));
+    exe.root_module.addImport("uuid", uuid_dep.module("uuid"));
     exe.linkLibC();
 
     b.installArtifact(exe);
