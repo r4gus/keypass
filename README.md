@@ -28,7 +28,7 @@ The project currently supports only Linux due to the absence of a standardized A
 
 ## Install
 
-This project is installed by running the following command in your terminal.
+Currently, PassKeeZ is only availbale for Linux.
 
 ### Linux
 
