@@ -54,7 +54,7 @@ echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.r
 udevadm control --reload-rules && udevadm trigger
 ```
 4. Create the `~/.passkeez` folder if it does not exist and add a `config.json` file with the following content: `{"db_path":"~/.passkeez/passkeez.kdbx", "lang":"english"}`.
-    - PassKeeZ supports the KDBX (KeePassXC, KeePass, ...) version 4 and Cbor Credential Database format. To use KDBX specify a path to a file with the ending `.kdbx` and for CCDB to a file with the ending `.ccdb`.
+    - PassKeeZ supports the KDBX (KeePassXC, KeePass, ...) version 4 and Cbor Credential Database format. To use KDBX specify a path to a file with the ending `.kdbx` and for CCDB to a file with the ending `.ccdb`. __It is not required that the file exists! In that case, a new database will be created the next time PassKeeZ wants to access the database.__
     - PassKeeZ currently supports `english` and `german`.
 
 #### Script
