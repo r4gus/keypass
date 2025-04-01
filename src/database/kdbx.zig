@@ -33,7 +33,7 @@ fn init(self: *TDatabase) TDatabase.Error!void {
             std.log.err("Cannot open database: ({any})", .{e});
             return error.WouldBlock;
         } else { // FileNotFound
-            break :blk createDialog(self) catch |e2| {
+            break :blk createDialog(self.allocator, self.path) catch |e2| {
                 std.log.err("Cannot open database: ({any})", .{e2});
                 return error.FileNotFound;
             };
@@ -218,9 +218,9 @@ fn setCredential(
 
 // ----------------- Helper ----------------------
 
-fn createDialog(self: *TDatabase) !std.fs.File {
+pub fn createDialog(allocator: std.mem.Allocator, path: []const u8) !std.fs.File {
     const r1 = std.process.Child.run(.{
-        .allocator = self.allocator,
+        .allocator = allocator,
         .argv = &.{
             "zigenity",
             "--question",
@@ -235,8 +235,8 @@ fn createDialog(self: *TDatabase) !std.fs.File {
     };
 
     defer {
-        self.allocator.free(r1.stdout);
-        self.allocator.free(r1.stderr);
+        allocator.free(r1.stdout);
+        allocator.free(r1.stderr);
     }
 
     switch (r1.term.Exited) {
@@ -246,7 +246,7 @@ fn createDialog(self: *TDatabase) !std.fs.File {
 
     outer: while (true) {
         var r2 = std.process.Child.run(.{
-            .allocator = self.allocator,
+            .allocator = allocator,
             .argv = &.{
                 "zigenity",
                 "--password",
@@ -261,8 +261,8 @@ fn createDialog(self: *TDatabase) !std.fs.File {
             return error.Other;
         };
         defer {
-            self.allocator.free(r2.stdout);
-            self.allocator.free(r2.stderr);
+            allocator.free(r2.stdout);
+            allocator.free(r2.stderr);
         }
 
         switch (r2.term.Exited) {
@@ -272,7 +272,7 @@ fn createDialog(self: *TDatabase) !std.fs.File {
 
                 if (pw1.len < 8) {
                     const r = std.process.Child.run(.{
-                        .allocator = self.allocator,
+                        .allocator = allocator,
                         .argv = &.{
                             "zigenity",
                             "--question",
@@ -289,13 +289,13 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                         return error.Other;
                     };
                     defer {
-                        self.allocator.free(r.stdout);
-                        self.allocator.free(r.stderr);
+                        allocator.free(r.stdout);
+                        allocator.free(r.stderr);
                     }
                     continue :outer;
                 }
 
-                const f_db = misc.createFile(self.path) catch |e| {
+                const f_db = misc.createFile(path) catch |e| {
                     std.log.err("Cannot create new database file: {any}", .{e});
                     return error.FileError;
                 };
@@ -304,14 +304,14 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                 var database = kdbx.Database.new(.{
                     .generator = "PassKeeZ",
                     .name = "PassKeeZ Database",
-                    .allocator = self.allocator,
+                    .allocator = allocator,
                 }) catch |e| {
                     std.log.err("Cannot create database: {any}", .{e});
                     return error.DatabaseError;
                 };
                 defer database.deinit();
 
-                const grp = kdbx.Group.new("Passkeys", self.allocator) catch |e| {
+                const grp = kdbx.Group.new("Passkeys", allocator) catch |e| {
                     std.log.err("Cannot create group: {any}", .{e});
                     return error.DatabaseError;
                 };
@@ -321,18 +321,18 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                 };
 
                 const db_key = kdbx.DatabaseKey{
-                    .password = try self.allocator.dupe(u8, pw1),
-                    .allocator = self.allocator,
+                    .password = try allocator.dupe(u8, pw1),
+                    .allocator = allocator,
                 };
                 defer db_key.deinit();
 
-                var raw = std.ArrayList(u8).init(self.allocator);
+                var raw = std.ArrayList(u8).init(allocator);
                 defer raw.deinit();
 
                 database.save(
                     raw.writer(),
                     db_key,
-                    self.allocator,
+                    allocator,
                 ) catch |e| {
                     std.log.err("Cannot seal database: {any}", .{e});
                     return error.DatabaseError;
@@ -344,7 +344,7 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                 };
 
                 const r = std.process.Child.run(.{
-                    .allocator = self.allocator,
+                    .allocator = allocator,
                     .argv = &.{
                         "zigenity",
                         "--question",
@@ -361,8 +361,8 @@ fn createDialog(self: *TDatabase) !std.fs.File {
                     return error.Other;
                 };
                 defer {
-                    self.allocator.free(r.stdout);
-                    self.allocator.free(r.stderr);
+                    allocator.free(r.stdout);
+                    allocator.free(r.stderr);
                 }
 
                 return f_db;

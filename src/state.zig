@@ -6,6 +6,7 @@ const keylib = @import("keylib");
 const UpResult = keylib.ctap.authenticator.callbacks.UpResult;
 const UvResult = keylib.ctap.authenticator.callbacks.UvResult;
 const i18n = @import("i18n.zig");
+const misc = @import("database/misc.zig");
 
 pub var conf: Config = undefined;
 
@@ -58,6 +59,28 @@ pub fn authenticate(a: std.mem.Allocator) !void {
     if (ts != null) return; // nothing to do
 
     var i: usize = 3;
+
+    const f = misc.openFile(conf.db_path) catch |e| blk: {
+        if (e != error.WouldBlock) {
+            if (std.mem.containsAtLeast(u8, conf.db_path, 1, ".ccdb")) {
+                break :blk Database.ccdb.createDialog(a, conf.db_path) catch |e_| {
+                    std.log.err("unable to create database '{s}' ({any})", .{ conf.db_path, e });
+                    return e_;
+                };
+            } else if (std.mem.containsAtLeast(u8, conf.db_path, 1, ".kdbx")) {
+                break :blk Database.kdbx.createDialog(a, conf.db_path) catch |e_| {
+                    std.log.err("unable to create database '{s}' ({any})", .{ conf.db_path, e });
+                    return e_;
+                };
+            } else {
+                std.log.err("invalid database path or name '{s}'", .{conf.db_path});
+                return error.InvalidDatabasePathOrName;
+            }
+        } else {
+            return error.WouldBlock;
+        }
+    };
+    f.close();
 
     outer: while (i > 0) : (i -= 1) {
         var password = std.process.Child.run(.{
