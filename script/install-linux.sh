@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PASSKEEZ_VERSION="0.5.0"
-ZIGENITY_VERSION="0.4.0"
+PASSKEEZ_VERSION=$([ -z "$1" ] && echo "0.5.0" || echo "$1")
+ZIGENITY_VERSION=$([ -z "$2" ] && echo "0.4.0" || echo "$2")
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -143,6 +143,11 @@ PKG=$(get_package_manager)
 echo "Architecture:    ${ARCH}"
 echo "Package manager: ${PKG}"
 
+echo "Stopping PassKeeZ service..."
+systemctl --user --machine=${SUDO_USER}@ stop passkeez.service || true
+echo "Disabling PassKeeZ service..."
+systemctl --user --machine=${SUDO_USER}@ disable passkeez.service || true
+
 echo "Checking dependencies... "
 check_dependencies $PKG $ARCH
 
@@ -162,11 +167,21 @@ echo "Configuring... "
 postinst
 echo -e "${GREEN}OK${NC}"
 
+echo "Enabling PassKeeZ service..."
+systemctl --user --machine=${SUDO_USER}@ enable passkeez.service || true
+echo "Starting PassKeeZ service..."
+systemctl --user --machine=${SUDO_USER}@ start passkeez.service || true
+systemctl --user --machine=${SUDO_USER}@ status --no-pager passkeez.service || true
+
 echo -e "${GREEN}PassKeeZ installed successfully.${NC}"
-echo "To enable PassKeeZ permanently run the following commands:"
+echo "To enable PassKeeZ permanently you can run the following commands:"
 echo -e "    ${YELLOW}systemctl --user enable passkeez.service${NC}"
 echo -e "    ${YELLOW}systemctl --user start passkeez.service${NC}"
-echo "For further details visit https://github.com/r4gus/keypass"
+echo "To stop PassKeeZ run:"
+echo -e "    ${YELLOW}systemctl --user stop passkeez.service${NC}"
+echo "To disable PassKeeZ run:"
+echo -e "    ${YELLOW}systemctl --user disable passkeez.service${NC}"
+echo "For further details visit https://github.com/Zig-Sec/PassKeeZ/wiki"
 echo -e "${YELLOW}If this is the first time running this script, please reboot...${NC}"
 
 # Exit successfully
