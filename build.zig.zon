@@ -1,6 +1,6 @@
 .{
     .name = .passkeez,
-    .version = "0.5.0",
+    .version = "0.5.1",
     .fingerprint = 0xdd1692d15d21a6f6,
     .dependencies = .{
         .keylib = .{
