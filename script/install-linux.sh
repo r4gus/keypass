@@ -1,7 +1,6 @@
 #!/bin/bash
 
 PASSKEEZ_VERSION=$([ -z "$1" ] && echo "0.5.0" || echo "$1")
-ZIGENITY_VERSION=$([ -z "$2" ] && echo "0.4.0" || echo "$2")
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -91,7 +90,7 @@ function install_passkeez {
 }
 
 function install_zigenity {
-    curl -L -# -C - -o "/usr/local/bin/zigenity" "https://github.com/r4gus/keypass/releases/download/$PASSKEEZ_VERSION/zigenity-linux-$ARCH-$ZIGENITY_VERSION"
+    curl -L -# -C - -o "/usr/local/bin/zigenity" "https://github.com/r4gus/keypass/releases/download/$PASSKEEZ_VERSION/zigenity-linux-$ARCH-$PASSKEEZ_VERSION"
     chmod +x /usr/local/bin/zigenity
 }
 
