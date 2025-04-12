@@ -28,44 +28,9 @@ The project currently supports only Linux due to the absence of a standardized A
 > [!IMPORTANT]
 > KDBX support has been added with version 0.5.0. The advantage of using KDBX is that you can manage your passkeys using KeePass or KeePassXC (PassKeeZ uses the same format for storing passkeys as KeePassXC). If you run into issues please open an issue.
 
-## Install
+## Getting Started 
 
-Currently, PassKeeZ is only availbale for Linux.
-
-### Linux
-
-#### Manual Installation
-
-1. Download the pre-built binaries for `passkeez` and `zigenity` and move them to `/usr/local/bin` (you need to rename them).
-2. Create the following directory if it does not already exist `~/.local/share/systemd/user` and add the [passkeez.service](https://github.com/Zig-Sec/PassKeeZ/blob/master/script/passkeez.service) file. With this change you can run the following commands:
-    - `systemctl --user enable passkeez.service`: enable PassKeeZ to start automatically
-    - `systemctl --user disable passkeez.service`: disable PassKeeZ to start automatically
-    - `systemctl --user start passkeez.service`: start PassKeeZ in the background
-    - `systemctl --user stop passkeez.service`: stop PassKeeZ
-    - `systemctl --user status passkeez.service`: get the status of the PassKeeZ process
-3. Add yourself to the `fido` group and enable the `uhid` module:
-```bash
-# Create a new group called fido
-getent group fido || (groupadd fido && usermod -a -G fido $SUDO_USER)
-
-# Add uhid to the list of modules to load during boot
-echo "uhid" > /etc/modules-load.d/fido.conf
-
-# Create a udev rule that allows all users that belong to the group fido to access /dev/uhid
-echo 'KERNEL=="uhid", GROUP="fido", MODE="0660"' > /etc/udev/rules.d/90-uinput.rules
-udevadm control --reload-rules && udevadm trigger
-```
-4. Create the `~/.passkeez` folder if it does not exist and add a `config.json` file with the following content: `{"db_path":"~/.passkeez/passkeez.kdbx", "lang":"english"}`.
-    - PassKeeZ supports the KDBX (KeePassXC, KeePass, ...) version 4 and Cbor Credential Database format. To use KDBX specify a path to a file with the ending `.kdbx` and for CCDB to a file with the ending `.ccdb`. __It is not required that the file exists! In that case, a new database will be created the next time PassKeeZ wants to access the database.__
-    - PassKeeZ currently supports `english` and `german`.
-
-#### Script
-
-Run the following script to install PassKeeZ automatically:
-
-```bash
-sudo bash -c "$(curl -fsSL https://github.com/Zig-Sec/PassKeeZ/releases/download/0.5.0/install-linux.sh)"
-```
+To get started please visit the [wiki](https://github.com/Zig-Sec/PassKeeZ/wiki/Installing-PassKeeZ).  
 
 ### Database Management
 
