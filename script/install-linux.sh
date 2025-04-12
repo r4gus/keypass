@@ -1,6 +1,8 @@
 #!/bin/bash
 
-PASSKEEZ_VERSION=$([ -z "$1" ] && echo "0.5.0" || echo "$1")
+PASSKEEZ_VERSION=$([ -z "$1" ] && echo "0.5.1" || echo "$1")
+ZIGENITY_VERSION=$([ -z "$2" ] && echo "0.4.1" || echo "$2")
+ZIG_VERSION=$([ -z "$3" ] && echo "0.14.0" || echo "$3")
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -34,6 +36,36 @@ function get_package_manager {
             break
         fi
     done
+}
+
+function download_zig {
+    cd /tmp
+    sub=$(ls | grep "zig-")
+
+    #if [ -z "$sub" ]; then
+    #    path=""
+    #    case $1 in
+    #        i386) path="https://ziglang.org/download/0.13.0/zig-linux-x86-0.13.0.tar.xz" ;;
+    #        i686) path="https://ziglang.org/download/0.13.0/zig-linux-x86-0.13.0.tar.xz" ;;
+    #        x86_64) path="https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz" ;;
+    #        *)
+    #            echo -e "${RED}Unsupported architecture $1. Exiting...${NC}"
+    #            exit 1
+    #            ;;
+    #    esac
+
+    #    if [ "$path" != "" ]; then
+    #        curl -# -C - -o "zig.tar.xz" "$path"
+    #        tar -xf "zig.tar.xz"
+    #        sub=$(ls | grep "zig-")
+    #    fi
+    #fi
+    curl -# -C - -o "zig.tar.xz" "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz"
+    tar -xf "zig.tar.xz"
+    sub=$(ls | grep "zig-")
+
+    zig="$sub/zig"
+    echo ${zig}
 }
 
 # Verify that all dependencies are met
@@ -72,8 +104,17 @@ function check_dependencies {
 }
 
 function install_passkeez {
-    curl -L -# -C - -o "/usr/local/bin/passkeez" "https://github.com/r4gus/keypass/releases/download/$PASSKEEZ_VERSION/passkeez-linux-$ARCH-$PASSKEEZ_VERSION"
-    chmod +x /usr/local/bin/passkeez
+    #curl -L -# -C - -o "/usr/local/bin/passkeez" "https://github.com/r4gus/keypass/releases/download/$PASSKEEZ_VERSION/passkeez-linux-$ARCH-$PASSKEEZ_VERSION"
+    #chmod +x /usr/local/bin/passkeez
+    cd /tmp
+
+    # Install the application
+    if [ ! -d "./PassKeeZ" ]; then
+        git clone https://github.com/Zig-Sec/PassKeeZ --branch $PASSKEEZ_VERSION
+    fi
+    cd PassKeeZ
+    ../$1 build -Doptimize=ReleaseSmall
+    cp zig-out/bin/passkeez /usr/local/bin/passkeez
  
     # Install the static files 
     #mkdir -p /usr/share/passkeez
@@ -90,8 +131,18 @@ function install_passkeez {
 }
 
 function install_zigenity {
-    curl -L -# -C - -o "/usr/local/bin/zigenity" "https://github.com/r4gus/keypass/releases/download/$PASSKEEZ_VERSION/zigenity-linux-$ARCH-$PASSKEEZ_VERSION"
-    chmod +x /usr/local/bin/zigenity
+    #curl -L -# -C - -o "/usr/local/bin/zigenity" "https://github.com/r4gus/keypass/releases/download/$PASSKEEZ_VERSION/zigenity-linux-$ARCH-$PASSKEEZ_VERSION"
+    #chmod +x /usr/local/bin/zigenity
+
+    cd /tmp
+
+    if [ ! -d "./zigenity" ]; then
+        git clone https://github.com/r4gus/zigenity --branch $ZIGENITY_VERSION
+    fi
+
+    cd zigenity
+    ../$1 build -Doptimize=ReleaseSmall
+    cp zig-out/bin/zigenity /usr/local/bin/zigenity
 }
 
 function check_config_folder {
@@ -150,12 +201,16 @@ systemctl --user --machine=${SUDO_USER}@ disable passkeez.service || true
 echo "Checking dependencies... "
 check_dependencies $PKG $ARCH
 
+echo "Downloading Zig..."
+zig=$(download_zig)
+echo -e "${GREEN}OK${NC}"
+
 echo "Installing PassKeeZ... "
-install_passkeez
+install_passkeez $zig
 echo -e "${GREEN}OK${NC}"
 
 echo "Installing zigenity... "
-install_zigenity
+install_zigenity $zig
 echo -e "${GREEN}OK${NC}"
 
 echo "Checking configuration folder... "
