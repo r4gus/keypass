@@ -138,8 +138,8 @@ fn getCredential(
 
         if (rp_id) |rpId| {
             if (std.mem.eql(u8, entry.get("KPEX_PASSKEY_RELYING_PARTY").?, rpId)) {
-                return credentialFromEntry(&entry) catch {
-                    std.log.warn("Entry with is not a KeePassXC passkey", .{});
+                return credentialFromEntry(&entry) catch |e| {
+                    std.log.err("Entry is not a KeePassXC passkey ({any})", .{e});
                     continue;
                 };
             }
@@ -149,14 +149,14 @@ fn getCredential(
             std.crypto.hash.sha2.Sha256.hash(url, &digest, .{});
 
             if (std.mem.eql(u8, &hash, &digest)) {
-                return credentialFromEntry(&entry) catch {
-                    std.log.warn("Entry with is not a KeePassXC passkey", .{});
+                return credentialFromEntry(&entry) catch |e| {
+                    std.log.err("Entry is not a KeePassXC passkey ({any})", .{e});
                     continue;
                 };
             }
         } else {
-            return credentialFromEntry(&entry) catch {
-                std.log.warn("Entry with is not a KeePassXC passkey", .{});
+            return credentialFromEntry(&entry) catch |e| {
+                std.log.err("Entry is not a KeePassXC passkey ({any})", .{e});
                 continue;
             };
         }
@@ -374,7 +374,7 @@ pub fn createDialog(allocator: std.mem.Allocator, path: []const u8) !std.fs.File
 
 fn credentialFromEntry(entry: *const kdbx.Entry) !keylib.ctap.authenticator.Credential {
     // we have already verified that this is a valid KeePassXC passkey
-    var buffer: [4096]u8 = .{0} ** 4096;
+    var buffer: [8192]u8 = .{0} ** 8192;
     var fba = std.heap.FixedBufferAllocator.init(&buffer);
     const allocator = fba.allocator();
 
@@ -390,9 +390,14 @@ fn credentialFromEntry(entry: *const kdbx.Entry) !keylib.ctap.authenticator.Cred
     const user_handle = entry.get("KPEX_PASSKEY_USER_HANDLE").?;
     const rp_id = entry.get("KPEX_PASSKEY_RELYING_PARTY").?;
 
+    const l = try std.base64.standard.Decoder.calcSizeForSlice(user_handle);
+    const uid = try allocator.alloc(u8, l);
+    defer std.crypto.secureZero(u8, uid);
+    try std.base64.standard.Decoder.decode(uid, user_handle);
+
     return .{
         .id = (try keylib.common.dt.ABS64B.fromSlice(cred_id)).?,
-        .user = try keylib.common.User.new(user_handle, user_name, user_name),
+        .user = try keylib.common.User.new(uid, user_name, user_name),
         .rp = try keylib.common.RelyingParty.new(rp_id, null),
         .sign_count = 0,
         .key = k,
