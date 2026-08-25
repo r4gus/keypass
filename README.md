@@ -13,6 +13,13 @@ Since version `0.7.4` PassKeeZ is fully compatible with [KeePassDX](https://www.
 
 [![Installing PassKeeZ Video](https://img.youtube.com/vi/_Z2yj9kszvU/0.jpg)](https://www.youtube.com/watch?v=_Z2yj9kszvU)
 
+**Install via Package-Manager**
+
+- Arch
+    - [Arch User Repository (AUR)](https://aur.archlinux.org/packages/passkeez) - _maintained by the community_
+- Debian Ubuntu
+    - Comming Soon: You can already download `.deb` packages for `zigenity` and `passkeez` for release [0.7.4](https://codeberg.org/r4gus/PassKeeZ/releases)
+
 **Quick Install** (For "lazy" people. If in doubt please read the script before running it.)
 
 | Version | Command |
