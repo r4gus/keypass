@@ -13,14 +13,55 @@ Since version `0.7.4` PassKeeZ is fully compatible with [KeePassDX](https://www.
 
 [![Installing PassKeeZ Video](https://img.youtube.com/vi/_Z2yj9kszvU/0.jpg)](https://www.youtube.com/watch?v=_Z2yj9kszvU)
 
-**Install via Package-Manager**
+## Installing PassKeez
 
-- Arch
-    - [Arch User Repository (AUR)](https://aur.archlinux.org/packages/passkeez) - _maintained by the community_
-- Debian Ubuntu
-    - Comming Soon: You can already download `.deb` packages for `zigenity` and `passkeez` for release [0.7.4](https://codeberg.org/r4gus/PassKeeZ/releases)
+### via Package Manager
 
-**Quick Install** (For "lazy" people. If in doubt please read the script before running it.)
+#### Arch
+
+The [Arch User Repository (AUR)](https://aur.archlinux.org/packages/passkeez) offers a package maintained by the community.
+
+#### Debian/ Ubuntu
+
+Follow these steps to install PassKeeZ using `apt`.
+
+##### Import the public key
+
+From a terminal, install `gnupg` and `curl` if they are not already available:
+
+```bash
+sudo apt install gnupg curl
+```
+
+To import the PassKeeZ public GPG-key, run the following command:
+
+```bash
+curl -fsSL https://pgp.passkeez.org/passkeez.asc | sudo gpg -o /usr/share/keyrings/passkeez.gpg --dearmor
+```
+
+##### Import the list file
+
+Create the list file `/etc/apt/sources.list.d/passkeez.list`:
+
+```bash
+echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/passkeez.gpg ] https://apt.passkeez.org/ stable main" | sudo tee /etc/apt/sources.list.d/passkeez.list
+```
+
+##### Reload package database and install PassKeeZ
+
+First update the package database with:
+```
+sudo apt update
+```
+
+Next, install the latest stable version of PassKeeZ:
+```
+sudo apt install passkeez
+```
+
+### Install Script
+
+> For "lazy" people. If in doubt please read the script before running it.
 
 | Version | Command |
 |:--------|:--------|
