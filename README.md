@@ -40,7 +40,7 @@ curl -fsSL https://pgp.passkeez.org/passkeez.asc | sudo gpg -o /usr/share/keyrin
 Create the list file `/etc/apt/sources.list.d/passkeez.list`:
 
 ```bash
-echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/passkeez.gpg ] https://apt.passkeez.org/ stable main" | sudo tee /etc/apt/sources.list.d/passkeez.list
+echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/passkeez.gpg ] https://ppa.passkeez.org/ stable main" | sudo tee /etc/apt/sources.list.d/passkeez.list
 ```
 
 ##### Reload package database and install PassKeeZ
