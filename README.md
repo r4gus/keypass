@@ -9,10 +9,6 @@ Since version `0.7.4` PassKeeZ is fully compatible with [KeePassDX](https://www.
 > [!IMPORTANT]
 > If you like this project, you can contribute in many forms, e.g., if you know how to package software for different distros you can help with making the installation process better.
 
-**To get started, please visit the [Wiki](https://codeberg.org/r4gus/PassKeeZ/wiki)**. The video below shows the full installation via the installer script.
-
-[![Installing PassKeeZ Video](https://img.youtube.com/vi/_Z2yj9kszvU/0.jpg)](https://www.youtube.com/watch?v=_Z2yj9kszvU)
-
 ## Installing PassKeez
 
 ### via Package Manager
@@ -67,6 +63,8 @@ sudo apt install passkeez
 |:--------|:--------|
 | 0.6.3   | `sudo bash -c "$(curl -fsSL https://codeberg.org/r4gus/PassKeeZ/raw/branch/master/script/install-linux.sh)" install-linux.sh --vpasskeez 0.6.3 --vzig 0.15.2 --vzigenity 0.7.1`|
 | 0.7.4   | `sudo bash -c "$(curl -fsSL https://codeberg.org/r4gus/PassKeeZ/raw/branch/master/script/install-linux.sh)"` |
+
+You can find more info in the [Wiki](https://codeberg.org/r4gus/PassKeeZ/wiki).
 
 **Browsers**
 
