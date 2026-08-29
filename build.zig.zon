@@ -1,6 +1,6 @@
 .{
     .name = .passkeez,
-    .version = "0.7.4",
+    .version = "0.8.0-alpha",
     .minimum_zig_version = "0.16.0",
     .fingerprint = 0xdd1692d15d21a6f6,
     .dependencies = .{

@@ -3,10 +3,22 @@ const std = @import("std");
 pub const config_dir_name = ".passkeez";
 pub const config_name = "config.json";
 
+/// Path to the .kdbx database
 db_path: []const u8 = "",
+/// Language
 lang: []const u8 = "english",
+/// MLDSA signature algorithm support (TODO: WIP)
 mldsa: bool = false,
+/// Lock memory
+/// Probably requires raising the limits in /etc/security/limits.conf
+///                hard    memlock          65536
+///                soft    memlock          65536
 mlock: bool = false,
+/// Grace window in which a new User Presence (UP) request is
+/// auto-accepted without re-prompting
+tout_up: u64 = 10,
+/// After this idle period the database is fully deinitialized
+tout_db: u64 = 60,
 
 pub fn load(a: std.mem.Allocator, io: std.Io, home: []const u8) !@This() {
     var file = openOrCreate(a, io, home) catch |e| {

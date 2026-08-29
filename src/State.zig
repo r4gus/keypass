@@ -28,9 +28,6 @@ up_result: ?UpResult = null,
 
 ts: ?i64 = null,
 
-const tout1: i64 = 10; // seconds
-const tout2: i64 = 60; // seconds
-
 const algs_minimal: []const PublicKeyCredentialParameters = &.{
     .{ .alg = .Es256 },
 };
@@ -145,9 +142,9 @@ fn confPathAlloc(a: std.mem.Allocator, home: []const u8) ![]const u8 {
 pub fn update(self: *@This(), io: std.Io) void {
     if (self.ts) |ts_| {
         const now = std.Io.Timestamp.now(io, .real).toSeconds();
-        if (now - ts_ > tout2) {
+        if (now - ts_ > self.conf.tout_db) {
             self.deinitDb();
-        } else if (now - ts_ > tout1) {
+        } else if (now - ts_ > self.conf.tout_up) {
             // Requre UP after 10 seconds
             self.uv_result = UvResult.Accepted;
             self.up_result = null;
